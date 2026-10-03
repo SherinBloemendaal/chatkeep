@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-label="Chatkeep: move the folder, keep the chats">
+  <title>Chatkeep: move the folder, keep the chats</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F7FBFC"/><stop offset="1" stop-color="#EEF2FF"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0D9488"/><stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="mark" gradientUnits="userSpaceOnUse" x1="6" y1="6" x2="94" y2="94">
+      <stop offset="0" stop-color="#0D9488"/><stop offset="0.5" stop-color="#0284C7"/><stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="wire" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0284C7" stop-opacity="0.95"/><stop offset="1" stop-color="#0D9488" stop-opacity="0.9"/>
+    </linearGradient>
+    <radialGradient id="glow1"><stop offset="0" stop-color="#0D9488" stop-opacity="0.18"/><stop offset="1" stop-color="#0D9488" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glow2"><stop offset="0" stop-color="#0284C7" stop-opacity="0.18"/><stop offset="1" stop-color="#0284C7" stop-opacity="0"/></radialGradient>
+    <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="#0D9488" fill-opacity="0.08"/>
+    </pattern>
+    <clipPath id="frame"><rect width="1280" height="360" rx="24"/></clipPath>
+  </defs>
+  <g clip-path="url(#frame)">
+    <rect width="1280" height="360" fill="url(#bg)"/>
+    <rect width="1280" height="360" fill="url(#dots)"/>
+    <circle cx="990" cy="180" r="320" fill="url(#glow1)"/><circle cx="1000" cy="330" r="200" fill="url(#glow2)"/><circle cx="110" cy="10" r="220" fill="url(#glow2)"/>
+  </g>
+  <rect x="0.75" y="0.75" width="1278.5" height="358.5" rx="23.25" fill="none" stroke="#DCE3EE" stroke-width="1.5"/>
+  <text x="72" y="96" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="url(#accent)" letter-spacing="3.2">AI CODING CHAT HISTORY  ·  MOVED FOLDERS</text>
+  <g transform="translate(70 118) scale(0.8)"><mask id="keyhole" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect width="100" height="100" fill="#FFFFFF"/><g fill="#000000"><circle cx="50" cy="35" r="11"/><path d="M44.5 41 H55.5 L58.5 61 H41.5 Z"/></g></mask><path d="M26 6 H74 A20 20 0 0 1 94 26 V58 A20 20 0 0 1 74 78 H44 L26 94 V78 A20 20 0 0 1 6 58 V26 A20 20 0 0 1 26 6 Z" fill="url(#mark)" mask="url(#keyhole)"/></g>
+  <text x="166" y="186" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="80" font-weight="800" letter-spacing="-2.5" fill="#0B1220">Chat<tspan fill="url(#accent)">keep</tspan></text>
+  <text x="72" y="236" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="24" font-weight="500" fill="#475467">Move the folder. Keep the chats.</text>
+  <rect x="72" y="266" width="369.84999999999997" height="42" rx="21" fill="#EEF6FB" stroke="#DCE3EE"/><circle cx="94" cy="287" r="5" fill="#0284C7"/>
+  <text x="110" y="292.5" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="15.5" font-weight="600" fill="#0E7490">$ chatkeep mv ~/old/app ~/new/app</text>
+  <rect x="762" y="67" width="210" height="176" rx="14" fill="#1E3A8A" fill-opacity="0.08"/><rect x="762" y="62" width="210" height="176" rx="14" fill="#FFFFFF" fill-opacity="1" stroke="#DCE3EE" stroke-width="1.25"/>
+  <path d="M782 88 a4 4 0 0 1 4 -4 h9 l4 5 h13 a4 4 0 0 1 4 4 v15 a4 4 0 0 1 -4 4 h-26 a4 4 0 0 1 -4 -4 z" fill="none" stroke="#98A2B3" stroke-width="2.2" stroke-linejoin="round"/>
+  <text x="828" y="104" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="700" fill="#475467">/old/workspace</text>
+  <circle cx="788" cy="134" r="4" fill="#98A2B3" fill-opacity="0.5"/>
+  <rect x="800" y="130" width="132" height="8" rx="4" fill="#E4E9F2" fill-opacity="0.5"/>
+  <circle cx="788" cy="160" r="4" fill="#98A2B3" fill-opacity="0.5"/>
+  <rect x="800" y="156" width="104" height="8" rx="4" fill="#E4E9F2" fill-opacity="0.5"/>
+  <circle cx="788" cy="186" r="4" fill="#98A2B3" fill-opacity="0.5"/>
+  <rect x="800" y="182" width="148" height="8" rx="4" fill="#E4E9F2" fill-opacity="0.5"/>
+  <text x="782" y="220" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="12.5" font-weight="600" fill="#98A2B3">history left behind</text>
+  <rect x="1012" y="67" width="210" height="176" rx="14" fill="#1E3A8A" fill-opacity="0.08"/><rect x="1012" y="62" width="210" height="176" rx="14" fill="#FFFFFF" fill-opacity="1" stroke="#DCE3EE" stroke-width="1.25"/>
+  <path d="M1032 88 a4 4 0 0 1 4 -4 h9 l4 5 h13 a4 4 0 0 1 4 4 v15 a4 4 0 0 1 -4 4 h-26 a4 4 0 0 1 -4 -4 z" fill="none" stroke="#0D9488" stroke-width="2.2" stroke-linejoin="round"/>
+  <text x="1078" y="104" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="700" fill="#0B1220">/new/workspace</text>
+  <circle cx="1038" cy="134" r="4" fill="#0D9488" fill-opacity="1"/>
+  <rect x="1050" y="130" width="132" height="8" rx="4" fill="#E4E9F2" fill-opacity="1"/>
+  <circle cx="1038" cy="160" r="4" fill="#0D9488" fill-opacity="1"/>
+  <rect x="1050" y="156" width="104" height="8" rx="4" fill="#E4E9F2" fill-opacity="1"/>
+  <circle cx="1038" cy="186" r="4" fill="#0D9488" fill-opacity="1"/>
+  <rect x="1050" y="182" width="148" height="8" rx="4" fill="#E4E9F2" fill-opacity="1"/>
+  <text x="1032" y="220" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="12.5" font-weight="600" fill="#0D9488">✓ 3 chats attached</text>
+  <path d="M867 238 Q 992 352 1117 238" fill="none" stroke="#0284C7" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="1 0"/>
+  <circle cx="867" cy="238" r="5" fill="#0284C7" stroke="#FFFFFF" stroke-width="2"/>
+  <circle cx="1117" cy="238" r="5" fill="#0284C7" stroke="#FFFFFF" stroke-width="2"/>
+  <path d="M933.9999999999999 272.88 h16 a7 7 0 0 1 7 7 v8 a7 7 0 0 1 -7 7 h-8 l-7 6 v-6 a7 7 0 0 1 -7 -7 v-8 a7 7 0 0 1 7 -7 z" fill="#0284C7" fill-opacity="0.55"/>
+  <path d="M989.0 281.90880000000004 h16 a7 7 0 0 1 7 7 v8 a7 7 0 0 1 -7 7 h-8 l-7 6 v-6 a7 7 0 0 1 -7 -7 v-8 a7 7 0 0 1 7 -7 z" fill="#0284C7" fill-opacity="0.8"/>
+  <path d="M1044.0 268.8672 h16 a7 7 0 0 1 7 7 v8 a7 7 0 0 1 -7 7 h-8 l-7 6 v-6 a7 7 0 0 1 -7 -7 v-8 a7 7 0 0 1 7 -7 z" fill="#0284C7" fill-opacity="1"/>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 100 100" role="img" aria-label="Chatkeep logo">
+  <title>Chatkeep</title>
+  <defs>
+    <linearGradient id="mark" gradientUnits="userSpaceOnUse" x1="6" y1="6" x2="94" y2="94">
+      <stop offset="0" stop-color="#14B8A6"/><stop offset="0.5" stop-color="#0EA5E9"/><stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+  </defs>
+  <mask id="keyhole" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect width="100" height="100" fill="#FFFFFF"/><g fill="#000000"><circle cx="50" cy="35" r="11"/><path d="M44.5 41 H55.5 L58.5 61 H41.5 Z"/></g></mask><path d="M26 6 H74 A20 20 0 0 1 94 26 V58 A20 20 0 0 1 74 78 H44 L26 94 V78 A20 20 0 0 1 6 58 V26 A20 20 0 0 1 26 6 Z" fill="url(#mark)" mask="url(#keyhole)"/>
+</svg>

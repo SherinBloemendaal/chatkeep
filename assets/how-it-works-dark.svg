@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="560" viewBox="0 0 1280 560" role="img" aria-label="How chatkeep mv works: it rewrites the local Cursor data that ties chats to a folder path">
+  <title>How chatkeep mv works: it rewrites the local Cursor data that ties chats to a folder path</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#070B12"/><stop offset="1" stop-color="#0F1424"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2DD4BF"/><stop offset="1" stop-color="#A78BFA"/>
+    </linearGradient>
+    <linearGradient id="mark" gradientUnits="userSpaceOnUse" x1="6" y1="6" x2="94" y2="94">
+      <stop offset="0" stop-color="#2DD4BF"/><stop offset="0.5" stop-color="#38BDF8"/><stop offset="1" stop-color="#A78BFA"/>
+    </linearGradient>
+    <linearGradient id="wire" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#38BDF8" stop-opacity="0.95"/><stop offset="1" stop-color="#2DD4BF" stop-opacity="0.9"/>
+    </linearGradient>
+    <radialGradient id="glow1"><stop offset="0" stop-color="#2DD4BF" stop-opacity="0.20"/><stop offset="1" stop-color="#2DD4BF" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glow2"><stop offset="0" stop-color="#38BDF8" stop-opacity="0.20"/><stop offset="1" stop-color="#38BDF8" stop-opacity="0"/></radialGradient>
+    <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="#2DD4BF" fill-opacity="0.07"/>
+    </pattern>
+    <clipPath id="frame"><rect width="1280" height="560" rx="24"/></clipPath>
+  </defs>
+  <g clip-path="url(#frame)">
+    <rect width="1280" height="560" fill="url(#bg)"/>
+    <rect width="1280" height="560" fill="url(#dots)"/>
+    <circle cx="230" cy="273.0" r="280" fill="url(#glow1)"/><circle cx="640" cy="273.0" r="220" fill="url(#glow2)"/><circle cx="1050" cy="273.0" r="320" fill="url(#glow1)"/>
+  </g>
+  <rect x="0.75" y="0.75" width="1278.5" height="558.5" rx="23.25" fill="none" stroke="#1E2638" stroke-width="1.5"/>
+  <text x="48" y="58" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="url(#accent)" letter-spacing="2.6">YOU MOVE A FOLDER</text>
+  <text x="488" y="58" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="url(#accent)" letter-spacing="2.6">CHATKEEP MV</text>
+  <text x="800" y="58" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="url(#accent)" letter-spacing="2.6">WHAT IT REWRITES</text>
+  <path d="M388 190.0 C 448 190.0, 428 273.0, 488 273.0" fill="none" stroke="url(#wire)" stroke-width="2.25" stroke-linecap="round"/>
+  <rect x="48" y="132.0" width="340" height="126" rx="14" fill="#000000" fill-opacity="0.50"/><rect x="48" y="127.0" width="340" height="126" rx="14" fill="#0F1626" fill-opacity="1" stroke="#232D44" stroke-width="1.25"/>
+  <rect x="48" y="145.0" width="5" height="90" rx="2.5" fill="url(#accent)"/>
+  <text x="76" y="169.0" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="17" font-weight="700" fill="#EEF2FA">/old/workspace</text>
+  <text x="76" y="203.0" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="400" fill="#38BDF8">▸</text>
+  <text x="94" y="203.0" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="400" fill="#9AA6BC">Cursor keyed the chats</text>
+  <text x="76" y="231.0" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="400" fill="#38BDF8">▸</text>
+  <text x="94" y="231.0" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="400" fill="#9AA6BC">to this exact path</text>
+  <path d="M388 356.0 C 448 356.0, 428 273.0, 488 273.0" fill="none" stroke="url(#wire)" stroke-width="2.25" stroke-linecap="round"/>
+  <rect x="48" y="298.0" width="340" height="126" rx="14" fill="#000000" fill-opacity="0.50"/><rect x="48" y="293.0" width="340" height="126" rx="14" fill="#0F1626" fill-opacity="1" stroke="#232D44" stroke-width="1.25"/>
+  <rect x="48" y="311.0" width="5" height="90" rx="2.5" fill="url(#accent)"/>
+  <text x="76" y="335.0" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="17" font-weight="700" fill="#EEF2FA">/new/workspace</text>
+  <text x="76" y="369.0" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="400" fill="#38BDF8">▸</text>
+  <text x="94" y="369.0" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="400" fill="#9AA6BC">opens with no history</text>
+  <text x="76" y="397.0" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="400" fill="#38BDF8">▸</text>
+  <text x="94" y="397.0" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="400" fill="#9AA6BC">until chatkeep repaths it</text>
+  <rect x="488" y="203.0" width="260" height="150" rx="18" fill="#000000" fill-opacity="0.50"/><rect x="488" y="198.0" width="260" height="150" rx="18" fill="#0F1626" fill-opacity="1" stroke="#232D44" stroke-width="1.25"/>
+  <rect x="488" y="198.0" width="260" height="44" rx="18" fill="url(#accent)"/>
+  <rect x="488" y="224.0" width="260" height="18" fill="url(#accent)"/>
+  <text x="618.0" y="226.0" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="15.5" font-weight="700" fill="#04121A" text-anchor="middle">chatkeep mv OLD NEW</text>
+  <text x="508" y="274.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14.5" font-weight="700" fill="#4ADE80">✓</text>
+  <text x="528" y="274.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14.5" font-weight="400" fill="#9AA6BC">refuses while Cursor runs</text>
+  <text x="508" y="300.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14.5" font-weight="700" fill="#4ADE80">✓</text>
+  <text x="528" y="300.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14.5" font-weight="400" fill="#9AA6BC">one transaction + undo journal</text>
+  <text x="508" y="326.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14.5" font-weight="700" fill="#4ADE80">✓</text>
+  <text x="528" y="326.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14.5" font-weight="400" fill="#9AA6BC">-n previews, writes nothing</text>
+  <path d="M748 273.0 C 788 273.0, 760 117.0, 800 117.0" fill="none" stroke="url(#wire)" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="800" cy="117.0" r="3.5" fill="#2DD4BF"/>
+  <rect x="800" y="89" width="432" height="66" rx="14" fill="#000000" fill-opacity="0.50"/><rect x="800" y="84" width="432" height="66" rx="14" fill="#0F1626" fill-opacity="1" stroke="#232D44" stroke-width="1.25"/>
+  <rect x="817.0" y="100.0" width="34" height="34" rx="9" fill="#0891B2"/><text x="834" y="121.3" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="800" fill="#FFFFFF">WS</text>
+  <text x="866" y="112" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="15" font-weight="700" fill="#EEF2FA">workspaceStorage/&lt;id&gt;/</text>
+  <text x="866" y="134" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#9AA6BC">new id for the new path's hash</text>
+  <path d="M748 273.0 C 788 273.0, 760 195.0, 800 195.0" fill="none" stroke="url(#wire)" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="800" cy="195.0" r="3.5" fill="#2DD4BF"/>
+  <rect x="800" y="167" width="432" height="66" rx="14" fill="#000000" fill-opacity="0.50"/><rect x="800" y="162" width="432" height="66" rx="14" fill="#0F1626" fill-opacity="1" stroke="#232D44" stroke-width="1.25"/>
+  <rect x="817.0" y="178.0" width="34" height="34" rx="9" fill="#2563EB"/><text x="834" y="199.3" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="800" fill="#FFFFFF">WJ</text>
+  <text x="866" y="190" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="15" font-weight="700" fill="#EEF2FA">workspace.json</text>
+  <text x="866" y="212" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#9AA6BC">points at the new folder</text>
+  <path d="M748 273.0 C 788 273.0, 760 273.5, 800 273.5" fill="none" stroke="url(#wire)" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="800" cy="273.0" r="3.5" fill="#2DD4BF"/>
+  <rect x="800" y="245" width="432" height="66" rx="14" fill="#000000" fill-opacity="0.50"/><rect x="800" y="240" width="432" height="66" rx="14" fill="#0F1626" fill-opacity="1" stroke="#232D44" stroke-width="1.25"/>
+  <rect x="817.0" y="256.0" width="34" height="34" rx="9" fill="#7C3AED"/><text x="834" y="277.3" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="800" fill="#FFFFFF">DB</text>
+  <text x="866" y="268" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="15" font-weight="700" fill="#EEF2FA">globalStorage/state.vscdb</text>
+  <text x="866" y="290" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#9AA6BC">matching chat registry rows</text>
+  <path d="M748 273.0 C 788 273.0, 760 351.0, 800 351.0" fill="none" stroke="url(#wire)" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="800" cy="351.0" r="3.5" fill="#2DD4BF"/>
+  <rect x="800" y="323" width="432" height="66" rx="14" fill="#000000" fill-opacity="0.50"/><rect x="800" y="318" width="432" height="66" rx="14" fill="#0F1626" fill-opacity="1" stroke="#232D44" stroke-width="1.25"/>
+  <rect x="817.0" y="334.0" width="34" height="34" rx="9" fill="#E08A00"/><text x="834" y="355.3" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="800" fill="#FFFFFF">SJ</text>
+  <text x="866" y="346" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="15" font-weight="700" fill="#EEF2FA">globalStorage/storage.json</text>
+  <text x="866" y="368" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#9AA6BC">workspace references</text>
+  <path d="M748 273.0 C 788 273.0, 760 429.0, 800 429.0" fill="none" stroke="url(#wire)" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="800" cy="429.0" r="3.5" fill="#2DD4BF"/>
+  <rect x="800" y="401" width="432" height="66" rx="14" fill="#000000" fill-opacity="0.50"/><rect x="800" y="396" width="432" height="66" rx="14" fill="#0F1626" fill-opacity="1" stroke="#232D44" stroke-width="1.25"/>
+  <rect x="817.0" y="412.0" width="34" height="34" rx="9" fill="#059669"/><text x="834" y="433.3" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="800" fill="#FFFFFF">TR</text>
+  <text x="866" y="424" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="15" font-weight="700" fill="#EEF2FA">~/.cursor/projects/</text>
+  <text x="866" y="446" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#9AA6BC">agent transcripts</text>
+  <circle cx="748" cy="273.0" r="5" fill="#38BDF8" stroke="#0F1626" stroke-width="2"/>
+</svg>
