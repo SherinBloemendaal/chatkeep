@@ -31,6 +31,152 @@ pub fn config_path(home: &Path) -> PathBuf {
     home.join("sync.json")
 }
 
+/// One line per change a sync made, newest last.
+pub fn log_path(home: &Path) -> PathBuf {
+    home.join("sync-log.jsonl")
+}
+
+/// The log grows to this size, then keeps its newest part.
+const LOG_LIMIT: u64 = 512 * 1024;
+const LOG_KEEP: usize = 256 * 1024;
+
+/// What a sync did to one account's list, or a note from the watcher.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LogEntry {
+    /// When, as an RFC 3339 time.
+    pub at: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub profile: String,
+    /// `add`, `update`, `remove`, or `note`.
+    pub action: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub chat: String,
+    /// The chat's title, or the text of a note.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub title: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub account: String,
+    /// `manual` for a sync someone ran, `watch` for the watcher.
+    pub source: String,
+    /// For an update: what differed, e.g. `title`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub changed: Vec<String>,
+    /// How often this happened in a row; `at` is the last time.
+    #[serde(default = "once", skip_serializing_if = "is_once")]
+    pub times: usize,
+}
+
+fn once() -> usize {
+    1
+}
+
+fn is_once(times: &usize) -> bool {
+    *times == 1
+}
+
+impl LogEntry {
+    /// Whether `next` is this same change again: an open chat is saved by the app every few
+    /// seconds, and each save is one more update of the same entry.
+    fn repeats(&self, next: &LogEntry) -> bool {
+        self.action == next.action
+            && self.chat == next.chat
+            && self.account == next.account
+            && self.profile == next.profile
+            && self.source == next.source
+            && (self.action == "update" || (self.action == "note" && self.title == next.title))
+    }
+
+    /// Fold `next` into this entry: the newest time and title, every field that changed.
+    fn absorb(&mut self, next: LogEntry) {
+        let mut changed = std::mem::take(&mut self.changed);
+        for key in &next.changed {
+            if !changed.contains(key) {
+                changed.push(key.clone());
+            }
+        }
+        let times = self.times + next.times;
+        *self = next;
+        self.changed = changed;
+        self.times = times;
+    }
+}
+
+/// Add `entries` to the log. A change that repeats the newest line is folded into that line,
+/// so hours of the same update do not push everything else out of the log.
+fn append_log(home: &Path, entries: &[LogEntry]) -> Result<()> {
+    if entries.is_empty() {
+        return Ok(());
+    }
+    fs::create_dir_all(home)?;
+    let path = log_path(home);
+    let existing = if path.is_file() {
+        fs::read_to_string(&path).with_context(|| format!("failed to read {}", path.display()))?
+    } else {
+        String::new()
+    };
+    let body = existing.trim_end_matches('\n');
+    let (mut out, last_line) = match body.rsplit_once('\n') {
+        Some((head, tail)) => (format!("{head}\n"), tail),
+        None => (String::new(), body),
+    };
+    let mut tail: Vec<LogEntry> = Vec::new();
+    match serde_json::from_str::<LogEntry>(last_line) {
+        Ok(entry) => tail.push(entry),
+        Err(_) if !last_line.is_empty() => {
+            out.push_str(last_line);
+            out.push('\n');
+        }
+        Err(_) => {}
+    }
+    for entry in entries {
+        match tail.last_mut() {
+            Some(last) if last.repeats(entry) => last.absorb(entry.clone()),
+            _ => tail.push(entry.clone()),
+        }
+    }
+    for entry in &tail {
+        out.push_str(&serde_json::to_string(entry)?);
+        out.push('\n');
+    }
+    write_atomic(&path, out.as_bytes())?;
+    crate::engine::index::trim_log(&path, LOG_LIMIT, LOG_KEEP)?;
+    // The plain-text log of the first release is superseded by this one.
+    let _ = fs::remove_file(home.join("sync.log"));
+    Ok(())
+}
+
+/// A note from the watcher: that it started, or what it is waiting for.
+pub fn log_note(home: &Path, text: &str) -> Result<()> {
+    append_log(
+        home,
+        &[LogEntry {
+            at: chrono::Utc::now().to_rfc3339(),
+            profile: String::new(),
+            action: "note".to_string(),
+            chat: String::new(),
+            title: text.to_string(),
+            account: String::new(),
+            source: "watch".to_string(),
+            changed: Vec::new(),
+            times: 1,
+        }],
+    )
+}
+
+/// Every entry of the log, oldest first. A line cut in half by trimming is skipped.
+pub fn read_log(home: &Path) -> Result<Vec<LogEntry>> {
+    let path = log_path(home);
+    if !path.is_file() {
+        return Ok(Vec::new());
+    }
+    let raw =
+        fs::read_to_string(&path).with_context(|| format!("failed to read {}", path.display()))?;
+    Ok(raw
+        .lines()
+        .filter_map(|line| serde_json::from_str(line).ok())
+        .collect())
+}
+
 /// One group of accounts that share their chats.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Profile {
@@ -290,6 +436,8 @@ pub struct Step {
     content: Option<(String, SystemTime)>,
     /// The app is open with this account and would write its own copy back; this step waits.
     pub waits: bool,
+    /// For an update: the fields that differ from the entry that wins.
+    pub changed: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -343,6 +491,20 @@ fn merged(winner: &Entry, target: Option<&Entry>, name: &str) -> Result<String> 
     }
     object.insert("sessionId".to_string(), Value::String(name.to_string()));
     Ok(serde_json::to_string(&json)?)
+}
+
+/// The fields two entries of one chat disagree on.
+fn differing(old: &Value, new: &Value) -> Vec<String> {
+    let (Some(old), Some(new)) = (old.as_object(), new.as_object()) else {
+        return Vec::new();
+    };
+    let mut keys: Vec<String> = new
+        .iter()
+        .filter(|(key, value)| old.get(*key) != Some(value))
+        .map(|(key, _)| key.clone())
+        .collect();
+    keys.extend(old.keys().filter(|key| !new.contains_key(*key)).cloned());
+    keys
 }
 
 /// Work out what brings the accounts of `profile` in step. Nothing is written.
@@ -404,6 +566,7 @@ pub fn plan(rt: &Runtime, name: &str, profile: &Profile) -> Result<Plan> {
                     dest: entry.file.clone(),
                     content: None,
                     waits: in_use(&listings[index].0),
+                    changed: Vec::new(),
                 });
             }
             continue;
@@ -444,6 +607,7 @@ pub fn plan(rt: &Runtime, name: &str, profile: &Profile) -> Result<Plan> {
                         dest: entry.file.clone(),
                         content: Some((merged(winner, Some(entry), &own)?, winner.modified)),
                         waits: in_use(account),
+                        changed: differing(&entry.shared(), &shared),
                     });
                 }
                 None => {
@@ -467,6 +631,7 @@ pub fn plan(rt: &Runtime, name: &str, profile: &Profile) -> Result<Plan> {
                         dest: dir.join(format!("{stem}.json")),
                         content: Some((merged(winner, None, &stem)?, winner.modified)),
                         waits: false,
+                        changed: Vec::new(),
                     });
                 }
             }
@@ -500,8 +665,9 @@ fn describe(plan: &Plan, steps: &[&Step], report: &mut Report) {
 }
 
 /// Apply `plan`: every addition and update that does not have to wait, and the removals when
-/// `remove` says the user agreed. Remembers what each account lists now.
-pub fn execute(rt: &Runtime, plan: &Plan, remove: bool) -> Result<Report> {
+/// `remove` says the user agreed. Remembers what each account lists now, and logs every
+/// change under `source`: `manual` or `watch`.
+pub fn execute(rt: &Runtime, plan: &Plan, remove: bool, source: &str) -> Result<Report> {
     let mut report = Report::default();
     let mut run: Vec<&Step> = plan.ready().collect();
     if remove {
@@ -569,6 +735,25 @@ pub fn execute(rt: &Runtime, plan: &Plan, remove: bool) -> Result<Report> {
             }
             Ok(())
         })?;
+        let at = chrono::Utc::now().to_rfc3339();
+        let entries: Vec<LogEntry> = run
+            .iter()
+            .map(|step| LogEntry {
+                at: at.clone(),
+                profile: plan.name.clone(),
+                action: step.action.verb().to_string(),
+                chat: step.chat.clone(),
+                title: step.title.clone(),
+                account: step.account.clone(),
+                source: source.to_string(),
+                changed: step.changed.clone(),
+                times: 1,
+            })
+            .collect();
+        // The changes are made; a log that cannot be written must not undo them.
+        if let Err(err) = append_log(&rt.layout.chatkeep_home, &entries) {
+            ui::warn(&format!("the sync log was not written: {err:#}"));
+        }
     }
     remember(rt, plan)?;
     Ok(report)
@@ -666,7 +851,7 @@ pub fn watch_round(rt: &Runtime, only: Option<&str>, last: &mut String) -> Resul
     let mut report = Report::default();
     for (name, profile) in selected(&config, only)? {
         let found = plan(rt, &name, &profile)?;
-        let done = execute(rt, &found, false)?;
+        let done = execute(rt, &found, false, "watch")?;
         report.applied.extend(done.applied);
         report.warnings.extend(done.warnings);
     }

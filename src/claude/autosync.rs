@@ -7,11 +7,6 @@ use crate::ui;
 
 pub const LABEL: &str = "dev.chatkeep.sync";
 
-/// Where the watcher writes what it did.
-pub fn log_path(home: &Path) -> PathBuf {
-    home.join("sync.log")
-}
-
 pub fn agent_path(user_home: &Path) -> PathBuf {
     user_home
         .join("Library")
@@ -190,8 +185,8 @@ pub fn status_line(home: &Path) -> Result<String> {
         (false, _) => "off",
     };
     Ok(format!(
-        "background sync is {state} (log: {})",
-        ui::home_relative(&log_path(home).display().to_string())
+        "background sync is {state} (see what it did with chatkeep claude sync log; file: {})",
+        ui::home_relative(&super::sync::log_path(home).display().to_string())
     ))
 }
 

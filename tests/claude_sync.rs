@@ -77,7 +77,7 @@ fn run(home: &Home, remove: bool) -> chatkeep::engine::Report {
     let config = sync::load(&home.rt.layout.chatkeep_home).unwrap();
     let profile = &config.profiles["work"];
     let plan = sync::plan(&home.rt, "work", profile).unwrap();
-    sync::execute(&home.rt, &plan, remove).unwrap()
+    sync::execute(&home.rt, &plan, remove, "manual").unwrap()
 }
 
 #[test]
@@ -380,4 +380,56 @@ fn the_command_line_sets_up_and_runs_a_sync() {
         Some(args(&["claude", "sync", "auto"]))
     );
     assert_eq!(help_request(&args(&["claude"])), Some(args(&["claude"])));
+}
+
+#[test]
+fn the_sync_log_says_which_chat_changed_how_and_folds_repeats() {
+    let home = Home::new();
+    let (_, a_two, ..) = two_accounts(&home);
+    let state = home.rt.layout.chatkeep_home.clone();
+    assert!(sync::read_log(&state).unwrap().is_empty());
+
+    run(&home, false);
+    let entries = sync::read_log(&state).unwrap();
+    assert_eq!(entries.len(), 2);
+    let added = entries.iter().find(|entry| entry.chat == SESSION).unwrap();
+    assert_eq!(
+        (
+            added.action.as_str(),
+            added.title.as_str(),
+            added.source.as_str()
+        ),
+        ("add", "Chat one", "manual")
+    );
+    assert!(added.account.starts_with(B));
+    assert_eq!(added.profile, "work");
+
+    // The watcher renames the same chat three times in a row: one row, counted.
+    let mut last = sync::fingerprint(&home.rt).unwrap();
+    for (title, at) in [("First", 200), ("Second", 300), ("Third", 400)] {
+        retitle(&a_two, title, at);
+        sync::watch_round(&home.rt, None, &mut last)
+            .unwrap()
+            .unwrap();
+    }
+    sync::log_note(&state, "waiting: something").unwrap();
+    sync::log_note(&state, "waiting: something").unwrap();
+    let entries = sync::read_log(&state).unwrap();
+    assert_eq!(entries.len(), 4, "{entries:?}");
+    let renamed = &entries[2];
+    assert_eq!(renamed.times, 3);
+    assert_eq!(renamed.action, "update");
+    assert_eq!(renamed.title, "Third");
+    assert_eq!(renamed.source, "watch");
+    assert_eq!(renamed.changed, ["title"]);
+    assert_eq!((entries[3].action.as_str(), entries[3].times), ("note", 2));
+    // Two different chats added in a row stay two lines.
+    assert_eq!((entries[0].times, entries[1].times), (1, 1));
+
+    // A half-written line is skipped.
+    let before = fs::read_to_string(sync::log_path(&state)).unwrap();
+    fs::write(sync::log_path(&state), format!("{{\"cut\n{before}")).unwrap();
+    assert_eq!(sync::read_log(&state).unwrap().len(), 4);
+    cli(&home, &["claude", "sync", "log"]).unwrap();
+    cli(&home, &["claude", "sync", "log", "--last", "2"]).unwrap();
 }

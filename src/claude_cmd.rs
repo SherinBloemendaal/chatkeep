@@ -98,6 +98,7 @@ pub fn perform(rt: &claude::Runtime, command: Command) -> Result<Outcome> {
                     watch_sync(rt, args.profile.as_deref(), args.interval)
                 }
                 Some(SyncAction::Auto(args)) => auto_sync(rt, &args.action),
+                Some(SyncAction::Log(args)) => Ok(text(sync_log(rt, args.last)?)),
             },
         },
         Command::Cursor(_) => bail!("chatkeep cursor commands only work on Cursor"),
@@ -589,7 +590,7 @@ fn run_sync(rt: &claude::Runtime, name: Option<&str>) -> Result<Outcome> {
             );
             remove = ui::confirm("Remove these chats from these accounts too?", false, true)?;
         }
-        let done = sync::execute(rt, &plan, remove)?;
+        let done = sync::execute(rt, &plan, remove, "manual")?;
         report.applied.extend(done.applied);
         report.warnings.extend(done.warnings);
     }
@@ -656,29 +657,88 @@ fn remove_sync_profile(rt: &claude::Runtime, name: &str) -> Result<Outcome> {
     Ok(finished(rt, "Sync profile", report))
 }
 
-/// One line of the watcher's log, on the terminal and in `sync.log`.
-fn watch_line(rt: &claude::Runtime, line: &str) {
-    let stamped = format!(
+/// What the watcher says about itself: on the terminal, and as a note in the sync log.
+fn watch_note(rt: &claude::Runtime, line: &str) {
+    watch_line(line);
+    let _ = sync::log_note(&rt.layout.chatkeep_home, line);
+}
+
+fn watch_line(line: &str) {
+    println!(
         "{} {line}",
         chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
     );
-    println!("{stamped}");
-    let path = autosync::log_path(&rt.layout.chatkeep_home);
-    let written = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&path)
-        .and_then(|mut file| {
-            use std::io::Write;
-            writeln!(file, "{stamped}")
-        });
-    if written.is_ok() {
-        let _ = crate::engine::index::trim_log(
-            &path,
-            crate::engine::index::LOG_LIMIT,
-            crate::engine::index::LOG_KEEP,
-        );
+}
+
+/// `claude sync log`: the newest changes. A change made several times in a row is one row.
+fn sync_log(rt: &claude::Runtime, last: usize) -> Result<String> {
+    let theme = Theme::stdout();
+    let heading = ui::section_line(theme, "Sync log");
+    let mut rows = sync::read_log(&rt.layout.chatkeep_home)?;
+    let skip = rows.len().saturating_sub(last.max(1));
+    let rows = rows.split_off(skip);
+    if rows.is_empty() {
+        return Ok(format!(
+            "{heading}\n{}\n",
+            ui::info_line(theme, "No sync has changed anything yet.")
+        ));
     }
+    let mut sheet = ui::Sheet::new(
+        theme,
+        &[
+            ("when", ui::Align::Left),
+            ("change", ui::Align::Left),
+            ("chat", ui::Align::Left),
+            ("what", ui::Align::Left),
+            ("account", ui::Align::Left),
+            ("by", ui::Align::Left),
+        ],
+    )
+    .flex(2)
+    .min_flex(16)
+    .optional(&[3, 5]);
+    for entry in &rows {
+        let when = chrono::DateTime::parse_from_rfc3339(&entry.at)
+            .map(|at| {
+                at.with_timezone(&chrono::Local)
+                    .format("%Y-%m-%d %H:%M:%S")
+                    .to_string()
+            })
+            .unwrap_or_else(|_| entry.at.clone());
+        let change = if entry.times > 1 {
+            format!("{} x{}", entry.action, entry.times)
+        } else {
+            entry.action.clone()
+        };
+        let color = match entry.action.as_str() {
+            "add" => Some(comfy_table::Color::Green),
+            "update" => Some(comfy_table::Color::Cyan),
+            "remove" => Some(comfy_table::Color::Red),
+            _ => None,
+        };
+        let chat = if entry.title.is_empty() {
+            entry.chat.clone()
+        } else {
+            entry.title.clone()
+        };
+        sheet.row(vec![
+            theme.cell(when, None, &[comfy_table::Attribute::Dim]),
+            theme.cell(change, color, &[]),
+            theme.cell(chat, None, &[]),
+            theme.cell(
+                entry.changed.join(", "),
+                None,
+                &[comfy_table::Attribute::Dim],
+            ),
+            theme.cell(
+                entry.account.split('-').next().unwrap_or_default(),
+                Some(comfy_table::Color::Magenta),
+                &[],
+            ),
+            theme.cell(&entry.source, None, &[comfy_table::Attribute::Dim]),
+        ]);
+    }
+    Ok(format!("{heading}\n{sheet}\n"))
 }
 
 /// `claude sync watch`: look at the chat lists every few seconds and sync when one changed.
@@ -693,7 +753,7 @@ fn watch_sync(rt: &claude::Runtime, name: Option<&str>, interval: u64) -> Result
     rt.quiet = true;
     rt.interactive = false;
     let pause = std::time::Duration::from_secs(interval.max(1));
-    watch_line(&rt, "watching the chat lists of every sync profile");
+    watch_note(&rt, "watching the chat lists of every sync profile");
     let mut last = String::new();
     let mut failing: Option<String> = None;
     loop {
@@ -702,7 +762,7 @@ fn watch_sync(rt: &claude::Runtime, name: Option<&str>, interval: u64) -> Result
                 failing = None;
                 if let Some(report) = done {
                     for line in report.applied.iter().chain(&report.warnings) {
-                        watch_line(&rt, line);
+                        watch_line(line);
                     }
                 }
             }
@@ -710,7 +770,7 @@ fn watch_sync(rt: &claude::Runtime, name: Option<&str>, interval: u64) -> Result
             Err(err) => {
                 let message = format!("{err:#}");
                 if failing.as_deref() != Some(message.as_str()) {
-                    watch_line(&rt, &format!("waiting: {message}"));
+                    watch_note(&rt, &format!("waiting: {message}"));
                     failing = Some(message);
                 }
             }

@@ -154,6 +154,15 @@ pub enum SyncAction {
     Watch(SyncWatchArgs),
     /// Run the watcher in the background from login on.
     Auto(SyncAutoArgs),
+    /// Show what the syncs changed, newest last.
+    Log(SyncLogArgs),
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SyncLogArgs {
+    /// How many rows to show, counted from the newest.
+    #[arg(long, default_value_t = 30, value_name = "ROWS", value_hint = ValueHint::Other)]
+    pub last: usize,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -2427,6 +2436,7 @@ pub fn command_args(command: &Command) -> Vec<String> {
                 Some(SyncAction::Watch(args)) => {
                     vec!["watch".into(), args.profile.clone().unwrap_or_default()]
                 }
+                Some(SyncAction::Log(_)) => vec!["log".into()],
                 Some(SyncAction::Auto(args)) => vec![
                     "auto".into(),
                     match args.action {
