@@ -125,6 +125,82 @@ pub enum ClaudeCommand {
     Accounts(AccountsArgs),
     /// Inspect or clear the index of what every transcript says.
     Cache(ClaudeCacheArgs),
+    /// Keep the chat lists of several desktop app accounts the same.
+    Sync(SyncArgs),
+}
+
+#[derive(Args, Debug, Clone)]
+#[command(args_conflicts_with_subcommands = true)]
+pub struct SyncArgs {
+    #[command(subcommand)]
+    pub action: Option<SyncAction>,
+    #[command(flatten)]
+    pub flags: WriteFlags,
+    /// The sync profile to run. Without it, every profile.
+    #[arg(value_hint = ValueHint::Other)]
+    pub profile: Option<String>,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum SyncAction {
+    /// Show the sync profiles and their accounts. Alias: ls.
+    #[command(alias = "ls")]
+    Profiles,
+    /// Create or replace a sync profile: the accounts that share their chats.
+    Set(SyncSetArgs),
+    /// Remove a sync profile. The chat lists stay as they are.
+    Rm(SyncRmArgs),
+    /// Keep syncing: act whenever a chat list changes, until stopped.
+    Watch(SyncWatchArgs),
+    /// Run the watcher in the background from login on.
+    Auto(SyncAutoArgs),
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SyncSetArgs {
+    #[command(flatten)]
+    pub flags: WriteFlags,
+    /// The name of the profile, e.g. work.
+    #[arg(value_hint = ValueHint::Other)]
+    pub name: String,
+    /// The accounts in it: each an id or the start of one, or ACCOUNT/ORGANIZATION.
+    #[arg(required = true, num_args = 2.., value_hint = ValueHint::Other)]
+    pub accounts: Vec<String>,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SyncRmArgs {
+    #[command(flatten)]
+    pub flags: WriteFlags,
+    /// The profile to remove.
+    #[arg(value_hint = ValueHint::Other)]
+    pub name: String,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SyncWatchArgs {
+    /// The sync profile to watch. Without it, every profile.
+    #[arg(value_hint = ValueHint::Other)]
+    pub profile: Option<String>,
+    /// Seconds between two looks at the chat lists.
+    #[arg(long, default_value_t = 5, value_name = "SECONDS", value_hint = ValueHint::Other)]
+    pub interval: u64,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SyncAutoArgs {
+    #[command(subcommand)]
+    pub action: SyncAutoAction,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum SyncAutoAction {
+    /// Start the background sync now and at every login.
+    On,
+    /// Stop the background sync and remove it.
+    Off,
+    /// Say whether the background sync runs.
+    Status,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -1372,7 +1448,8 @@ pub fn help_request(args: &[String]) -> Option<Vec<String>> {
             }
         }
     }
-    let bare_group = !path.is_empty() && current.has_subcommands() && others == 0;
+    // A command that works without an action (`claude sync`) runs; it is not a bare group.
+    let bare_group = !path.is_empty() && current.is_subcommand_required_set() && others == 0;
     ((wants && !path.is_empty()) || bare_group).then_some(path)
 }
 
@@ -2062,6 +2139,12 @@ pub fn common_of(command: &Command) -> CommonArgs {
                 ClaudeCacheAction::Clear(flags) => flags_only(flags.dry_run, flags.yes),
                 ClaudeCacheAction::Stats => flags_only(false, false),
             },
+            ClaudeCommand::Sync(args) => match &args.action {
+                None => flags_only(args.flags.dry_run, args.flags.yes),
+                Some(SyncAction::Set(args)) => flags_only(args.flags.dry_run, args.flags.yes),
+                Some(SyncAction::Rm(args)) => flags_only(args.flags.dry_run, args.flags.yes),
+                Some(_) => flags_only(false, false),
+            },
         },
         Command::Uninstall(args) => flags_only(args.dry_run, args.yes),
         Command::Update | Command::Github | Command::Help(_) | Command::RefreshIndex => {
@@ -2272,6 +2355,7 @@ pub fn command_name(command: &Command) -> &'static str {
         Command::Claude(args) => match &args.command {
             ClaudeCommand::Accounts(_) => "claude accounts",
             ClaudeCommand::Cache(_) => "claude cache",
+            ClaudeCommand::Sync(_) => "claude sync",
         },
         Command::RefreshIndex => index::REFRESH_COMMAND,
         Command::Update => "update",
@@ -2332,6 +2416,26 @@ pub fn command_args(command: &Command) -> Vec<String> {
                 ClaudeCacheAction::Clear(_) => "clear".into(),
                 ClaudeCacheAction::Stats => "stats".into(),
             }],
+            ClaudeCommand::Sync(args) => match &args.action {
+                None => vec![args.profile.clone().unwrap_or_default()],
+                Some(SyncAction::Profiles) => vec!["profiles".into()],
+                Some(SyncAction::Set(args)) => std::iter::once("set".to_string())
+                    .chain(std::iter::once(args.name.clone()))
+                    .chain(args.accounts.clone())
+                    .collect(),
+                Some(SyncAction::Rm(args)) => vec!["rm".into(), args.name.clone()],
+                Some(SyncAction::Watch(args)) => {
+                    vec!["watch".into(), args.profile.clone().unwrap_or_default()]
+                }
+                Some(SyncAction::Auto(args)) => vec![
+                    "auto".into(),
+                    match args.action {
+                        SyncAutoAction::On => "on".into(),
+                        SyncAutoAction::Off => "off".into(),
+                        SyncAutoAction::Status => "status".into(),
+                    },
+                ],
+            },
         },
         Command::History(_)
         | Command::Stats(_)

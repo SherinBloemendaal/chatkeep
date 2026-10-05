@@ -14,7 +14,16 @@ pub fn run(args: &UninstallArgs) -> Result<()> {
     let binary = crate::update::install_binary_path()?;
     let state = crate::config::chatkeep_home()?;
     let spellings = dir_spellings(binary.parent().unwrap_or(Path::new("")));
-    execute(args, &home, &binary, &state, &spellings)
+    execute(args, &home, &binary, &state, &spellings)?;
+    // The background sync runs this binary; without it, it would restart forever.
+    if args.dry_run {
+        if crate::claude::autosync::installed()? {
+            ui::info("The background sync would be stopped and removed.");
+        }
+    } else if crate::claude::autosync::disable()? {
+        ui::ok("Stopped and removed the background sync.");
+    }
+    Ok(())
 }
 
 fn execute(

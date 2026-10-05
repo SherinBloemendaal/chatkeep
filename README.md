@@ -154,6 +154,8 @@ These exist for one tool only:
 | `chatkeep claude accounts ls`                         | The accounts of the Claude desktop app and how many chats each one lists.                        |
 | `chatkeep claude accounts cp [FROM] [TO]`             | Make the chats one account lists show up for another account. Default `TO`: the one signed in.   |
 | `chatkeep claude cache clear\|stats`                   | Clear or inspect the index of what every Claude Code transcript says.                            |
+| `chatkeep claude sync [PROFILE]`                      | Keep the chat lists of the accounts in a sync profile the same, in both directions.              |
+| `chatkeep claude sync set\|rm\|profiles\|watch\|auto`   | Manage sync profiles, watch for changes, or run the watcher in the background.                   |
 
 And these do not care about the tool:
 
@@ -303,6 +305,28 @@ chatkeep claude accounts cp OLD      # list the chats of OLD under the account s
 ```
 
 `OLD` is an account id or the start of one. `accounts cp` copies only the list entries, never a transcript: both accounts then open the same chat. It skips chats without a transcript on this machine and chats the account already lists, never overwrites an entry, and leaves out what belongs to the old account (its remote session and its connectors). Restart the desktop app to see them.
+
+### Syncing accounts
+
+`accounts cp` is a one-off. A sync profile keeps accounts the same from then on:
+
+```bash
+chatkeep claude sync set work ACCOUNT_A ACCOUNT_B   # these accounts share their chats
+chatkeep claude sync                                # sync every profile now
+chatkeep claude sync auto on                        # and keep doing it in the background
+```
+
+A profile is a named group of accounts, so work accounts sync with work accounts and private ones with private ones. An account belongs to one profile at most.
+
+Inside a profile the sync goes both ways:
+
+- **Add.** A chat one account lists is listed by all of them.
+- **Update.** When two accounts hold a different entry for the same chat (a new title, pinned, archived), the entry whose file changed last wins. The copy keeps that file time, and each account keeps what belongs to it (its remote session and its connectors).
+- **Remove, only after you say yes.** A chat that an account listed at the last sync and no longer lists was deleted there. It is never added back. It leaves the other accounts only when you run `chatkeep claude sync` in a terminal and confirm; `-y`, the watcher, and the background runner never remove anything.
+
+While the desktop app is open, changes to entries of the account it is signed in with wait, because the app would write its own copy back; new chats are still added, and show after a restart of the app. Everything for the other accounts happens at once.
+
+`chatkeep claude sync watch` looks at the chat lists every few seconds (`--interval`) and syncs when one changed. `chatkeep claude sync auto on` runs that watcher from login on (a launch agent on macOS; on other systems start `sync watch` yourself), `auto off` stops and removes it, and `chatkeep uninstall` removes it too. What it did is in `~/.chatkeep/sync.log`; the profiles are in `~/.chatkeep/sync.json`.
 
 > [!NOTE]
 > This only covers chats that ran on this machine. Chats that ran in Anthropic's cloud (claude.ai/code) are stored with the account they were started under, and no local tool can move those.

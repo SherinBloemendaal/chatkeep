@@ -205,6 +205,13 @@ pub const GROUPS: &[Group] = &[
                 "Desktop app accounts; copy chats from one to another",
             ),
             entry(
+                ("⇄", "="),
+                "claude",
+                &[],
+                "sync [PROFILE]",
+                "Keep the chat lists of several accounts the same",
+            ),
+            entry(
                 ("◫", "%"),
                 "claude",
                 &[],
@@ -362,8 +369,12 @@ pub const EXAMPLES: &[(&str, &str)] = &[
         "Queue a move while the tool is still open",
     ),
     (
-        "chatkeep claude accounts cp OLD",
-        "Show an old account's chats in the desktop app",
+        "chatkeep claude sync set work A B",
+        "Let accounts A and B share their chat lists",
+    ),
+    (
+        "chatkeep claude sync auto on",
+        "Sync those lists in the background from now on",
     ),
     ("chatkeep help mv", "Every option of one command"),
 ];

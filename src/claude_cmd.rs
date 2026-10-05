@@ -4,10 +4,12 @@ use anyhow::{Result, bail};
 use std::path::PathBuf;
 use std::time::Instant;
 
-use crate::claude::{self, accounts, archive, index, ops, stats, store, transfer, view};
+use crate::claude::{
+    self, accounts, archive, autosync, index, ops, stats, store, sync, transfer, view,
+};
 use crate::cli::{
     self, AccountCpArgs, AccountsAction, ClaudeCacheAction, ClaudeCommand, CombineArgs, Command,
-    CommonArgs, ExportArgs, ImportArgs, Outcome, PathArgs, SplitArgs,
+    CommonArgs, ExportArgs, ImportArgs, Outcome, PathArgs, SplitArgs, SyncAction, SyncAutoAction,
 };
 use crate::engine::{Report, append_history};
 use crate::ui::{self, Theme, validation};
@@ -30,7 +32,7 @@ pub fn is_write(command: &Command) -> bool {
         | Command::Import(_) => true,
         Command::Claude(args) => match &args.command {
             ClaudeCommand::Accounts(args) => matches!(args.action, AccountsAction::Cp(_)),
-            ClaudeCommand::Cache(_) => false,
+            ClaudeCommand::Cache(_) | ClaudeCommand::Sync(_) => false,
         },
         _ => false,
     }
@@ -86,6 +88,16 @@ pub fn perform(rt: &claude::Runtime, command: Command) -> Result<Outcome> {
             ClaudeCommand::Cache(args) => match args.action {
                 ClaudeCacheAction::Clear(_) => clear_cache(rt),
                 ClaudeCacheAction::Stats => Ok(text(cache_stats(rt)?)),
+            },
+            ClaudeCommand::Sync(args) => match args.action {
+                None => run_sync(rt, args.profile.as_deref()),
+                Some(SyncAction::Profiles) => Ok(text(sync_profiles(rt)?)),
+                Some(SyncAction::Set(args)) => set_sync_profile(rt, &args.name, &args.accounts),
+                Some(SyncAction::Rm(args)) => remove_sync_profile(rt, &args.name),
+                Some(SyncAction::Watch(args)) => {
+                    watch_sync(rt, args.profile.as_deref(), args.interval)
+                }
+                Some(SyncAction::Auto(args)) => auto_sync(rt, &args.action),
             },
         },
         Command::Cursor(_) => bail!("chatkeep cursor commands only work on Cursor"),
@@ -516,4 +528,230 @@ fn cache_stats(rt: &claude::Runtime) -> Result<String> {
         ("schema", theme.cell(counts.schema, None, &[])),
     ];
     Ok(format!("{heading}\n{}\n", ui::panel(theme, rows)))
+}
+
+fn sync_rows(steps: &[&sync::Step]) -> Vec<Vec<String>> {
+    steps
+        .iter()
+        .map(|step| {
+            vec![
+                step.action.verb().to_string(),
+                if step.title.is_empty() {
+                    step.chat.clone()
+                } else {
+                    step.title.clone()
+                },
+                step.account.clone(),
+            ]
+        })
+        .collect()
+}
+
+/// `claude sync`: bring the accounts of each profile in step. Additions and updates need one
+/// yes (or `-y`); removing a chat another account deleted is always asked on its own, and
+/// only of a person at a terminal.
+fn run_sync(rt: &claude::Runtime, name: Option<&str>) -> Result<Outcome> {
+    let config = sync::load(&rt.layout.chatkeep_home)?;
+    let mut report = Report::default();
+    for (name, profile) in sync::selected(&config, name)? {
+        let plan = sync::plan(rt, &name, &profile)?;
+        let ready: Vec<&sync::Step> = plan.ready().collect();
+        if !ready.is_empty() && !rt.quiet {
+            print!(
+                "{}",
+                validation(
+                    Theme::stdout(),
+                    &format!("Sync plan for {name}"),
+                    &["change", "chat", "account"],
+                    &sync_rows(&ready),
+                    &[]
+                )
+            );
+        }
+        if !ready.is_empty()
+            && !rt.dry_run
+            && !ui::confirm("Sync these chats?", rt.yes, rt.interactive)?
+        {
+            bail!("aborted");
+        }
+        let removable: Vec<&sync::Step> = plan.removals.iter().filter(|step| !step.waits).collect();
+        let mut remove = false;
+        if !removable.is_empty() && rt.interactive && !rt.dry_run {
+            print!(
+                "{}",
+                validation(
+                    Theme::stdout(),
+                    &format!("Deleted in another account of {name}"),
+                    &["change", "chat", "account"],
+                    &sync_rows(&removable),
+                    &[]
+                )
+            );
+            remove = ui::confirm("Remove these chats from these accounts too?", false, true)?;
+        }
+        let done = sync::execute(rt, &plan, remove)?;
+        report.applied.extend(done.applied);
+        report.warnings.extend(done.warnings);
+    }
+    Ok(finished(rt, "Sync (Claude Code)", report))
+}
+
+fn sync_profiles(rt: &claude::Runtime) -> Result<String> {
+    let theme = Theme::stdout();
+    let config = sync::load(&rt.layout.chatkeep_home)?;
+    let heading = ui::section_line(theme, "Sync profiles");
+    if config.profiles.is_empty() {
+        return Ok(format!(
+            "{heading}\n{}\n{}\n",
+            ui::info_line(theme, "No sync profile exists yet."),
+            ui::hint_line(
+                theme,
+                "Create one with: chatkeep claude sync set NAME ACCOUNT ACCOUNT"
+            )
+        ));
+    }
+    let signed_in = accounts::current(&rt.layout);
+    let mut sheet = ui::Sheet::new(
+        theme,
+        &[
+            ("profile", ui::Align::Left),
+            ("account", ui::Align::Left),
+            ("state", ui::Align::Left),
+        ],
+    );
+    for (name, profile) in &config.profiles {
+        for account in &profile.accounts {
+            let here = signed_in
+                .as_deref()
+                .is_some_and(|current| account.starts_with(current));
+            sheet.row(vec![
+                theme.cell(name, Some(comfy_table::Color::Cyan), &[]),
+                theme.cell(account, Some(comfy_table::Color::Magenta), &[]),
+                theme.cell(if here { "signed in" } else { "" }, None, &[]),
+            ]);
+        }
+    }
+    Ok(format!(
+        "{heading}\n{sheet}\n{}\n",
+        ui::info_line(theme, &autosync::status_line(&rt.layout.chatkeep_home)?)
+    ))
+}
+
+fn set_sync_profile(rt: &claude::Runtime, name: &str, specs: &[String]) -> Result<Outcome> {
+    let profile = sync::set_profile(rt, name, specs)?;
+    let mut report = Report::default();
+    report.applied.push(format!(
+        "set profile {name} -> {}",
+        profile.accounts.join(", ")
+    ));
+    Ok(finished(rt, "Sync profile", report))
+}
+
+fn remove_sync_profile(rt: &claude::Runtime, name: &str) -> Result<Outcome> {
+    if !sync::remove_profile(rt, name)? {
+        bail!("no sync profile named {name}");
+    }
+    let mut report = Report::default();
+    report.applied.push(format!("remove profile {name}"));
+    Ok(finished(rt, "Sync profile", report))
+}
+
+/// One line of the watcher's log, on the terminal and in `sync.log`.
+fn watch_line(rt: &claude::Runtime, line: &str) {
+    let stamped = format!(
+        "{} {line}",
+        chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
+    );
+    println!("{stamped}");
+    let path = autosync::log_path(&rt.layout.chatkeep_home);
+    let written = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .and_then(|mut file| {
+            use std::io::Write;
+            writeln!(file, "{stamped}")
+        });
+    if written.is_ok() {
+        let _ = crate::engine::index::trim_log(
+            &path,
+            crate::engine::index::LOG_LIMIT,
+            crate::engine::index::LOG_KEEP,
+        );
+    }
+}
+
+/// `claude sync watch`: look at the chat lists every few seconds and sync when one changed.
+/// It never asks and never removes; it runs until it is stopped.
+fn watch_sync(rt: &claude::Runtime, name: Option<&str>, interval: u64) -> Result<Outcome> {
+    let config = sync::load(&rt.layout.chatkeep_home)?;
+    if let Some(name) = name {
+        sync::selected(&config, Some(name))?;
+    }
+    let mut rt = rt.clone();
+    rt.yes = true;
+    rt.quiet = true;
+    rt.interactive = false;
+    let pause = std::time::Duration::from_secs(interval.max(1));
+    watch_line(&rt, "watching the chat lists of every sync profile");
+    let mut last = String::new();
+    let mut failing: Option<String> = None;
+    loop {
+        match sync::watch_round(&rt, name, &mut last) {
+            Ok(done) => {
+                failing = None;
+                if let Some(report) = done {
+                    for line in report.applied.iter().chain(&report.warnings) {
+                        watch_line(&rt, line);
+                    }
+                }
+            }
+            // A profile may not exist yet, or a list may be half written: say it once, retry.
+            Err(err) => {
+                let message = format!("{err:#}");
+                if failing.as_deref() != Some(message.as_str()) {
+                    watch_line(&rt, &format!("waiting: {message}"));
+                    failing = Some(message);
+                }
+            }
+        }
+        std::thread::sleep(pause);
+    }
+}
+
+fn auto_sync(rt: &claude::Runtime, action: &SyncAutoAction) -> Result<Outcome> {
+    let home = &rt.layout.chatkeep_home;
+    let theme = Theme::stdout();
+    Ok(text(match action {
+        SyncAutoAction::Status => {
+            format!("{}\n", ui::info_line(theme, &autosync::status_line(home)?))
+        }
+        SyncAutoAction::On => {
+            let config = sync::load(home)?;
+            sync::selected(&config, None)?;
+            let path = autosync::enable()?;
+            format!(
+                "{}\n{}\n",
+                ui::ok_line(
+                    theme,
+                    &format!(
+                        "background sync is on ({})",
+                        ui::home_relative(&path.display().to_string())
+                    )
+                ),
+                ui::hint_line(
+                    theme,
+                    "It adds and updates on its own. Chats deleted in one account wait until you run chatkeep claude sync."
+                )
+            )
+        }
+        SyncAutoAction::Off => {
+            let line = if autosync::disable()? {
+                "background sync is off"
+            } else {
+                "background sync was not on"
+            };
+            format!("{}\n", ui::ok_line(theme, line))
+        }
+    }))
 }

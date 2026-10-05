@@ -22,7 +22,7 @@ use crate::ui::{self, Align, Sheet, Theme};
 
 /// What an entry holds about the account it was made under. A copy for another account
 /// starts without them: the remote session and the connectors belong to the first account.
-const ACCOUNT_BOUND: [&str; 2] = ["bridgeSessionIds", "remoteMcpServersConfig"];
+pub(super) const ACCOUNT_BOUND: [&str; 2] = ["bridgeSessionIds", "remoteMcpServersConfig"];
 
 /// One organization of one account: the folder the app lists its chats in.
 #[derive(Debug, Clone)]
@@ -159,7 +159,7 @@ pub fn render_at(
 
 /// The listings `spec` names: `ACCOUNT` or `ACCOUNT/ORGANIZATION`, each an id or the start of
 /// one.
-fn matching<'a>(listings: &'a [Listing], spec: &str) -> Result<Vec<&'a Listing>> {
+pub(super) fn matching<'a>(listings: &'a [Listing], spec: &str) -> Result<Vec<&'a Listing>> {
     let (account, organization) = match spec.split_once('/') {
         Some((account, organization)) => (account, Some(organization)),
         None => (spec, None),

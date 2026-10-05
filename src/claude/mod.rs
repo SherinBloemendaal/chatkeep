@@ -3,6 +3,7 @@
 
 pub mod accounts;
 pub mod archive;
+pub mod autosync;
 pub mod config;
 pub mod desktop;
 pub mod index;
@@ -11,6 +12,7 @@ pub mod ops;
 pub mod slug;
 pub mod stats;
 pub mod store;
+pub mod sync;
 pub mod transfer;
 pub mod view;
 
