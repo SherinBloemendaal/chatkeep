@@ -99,11 +99,12 @@ fn cp_gives_the_new_folder_its_own_copy_of_every_chat() {
     assert_ne!(new, SESSION);
     let dest = home.project_dir(&copy);
     let transcript = read(&dest.join(format!("{new}.jsonl")));
-    assert!(transcript.contains(&format!("\"cwd\":\"{copy_str}\"")));
-    assert!(transcript.contains(&format!("edit {copy_str}/src/main.rs")));
+    let copy_json = in_json(&copy_str);
+    assert!(transcript.contains(&format!("\"cwd\":\"{copy_json}\"")));
+    assert!(transcript.contains(&format!("edit {copy_json}/src/main.rs")));
     assert!(transcript.contains(&format!("\"sessionId\":\"{new}\"")));
     assert!(!transcript.contains(SESSION), "{transcript}");
-    assert!(!transcript.contains(&app_str), "{transcript}");
+    assert!(!transcript.contains(&in_json(&app_str)), "{transcript}");
     assert!(
         transcript.contains(&format!(
             "~/.claude/projects/{}/{new}/tool-results/a.txt",
@@ -342,8 +343,8 @@ fn split_copies_chats_and_leaves_the_paths_they_mention_alone() {
     let copied = home.session_ids(&web).remove(0);
     let transcript = read(&home.project_dir(&web).join(format!("{copied}.jsonl")));
     // The chat now runs in the target, but the files it worked on did not move.
-    assert!(transcript.contains(&format!("\"cwd\":\"{}\"", text(&web))));
-    assert!(transcript.contains(&format!("{}/b.rs", text(&api))));
+    assert!(transcript.contains(&format!("\"cwd\":\"{}\"", in_json(&text(&web)))));
+    assert!(transcript.contains(&format!("{}/b.rs", in_json(&text(&api)))));
     assert!(transcript.contains(&format!("\"sessionId\":\"{copied}\"")));
     assert_eq!(project(&home, &web).path.as_deref(), Some(web.as_path()));
 }
@@ -383,8 +384,8 @@ fn split_with_move_takes_each_chat_out_of_the_source() {
     let desk: Value = serde_json::from_str(&read(&desktop)).unwrap();
     assert_eq!(desk["cwd"], json!(text(&api)));
     let prompts = read(&home.rt.layout.prompt_history());
-    assert!(prompts.contains(&format!("\"project\":\"{}\"", text(&api))));
-    assert!(prompts.contains(&format!("\"project\":\"{mono_str}\"")));
+    assert!(prompts.contains(&format!("\"project\":\"{}\"", in_json(&text(&api)))));
+    assert!(prompts.contains(&format!("\"project\":\"{}\"", in_json(&mono_str))));
 }
 
 #[test]
@@ -449,7 +450,7 @@ fn combine_with_move_empties_the_sources() {
     assert_eq!(home.session_ids(&all), [SESSION]);
     assert!(home.session_ids(&one).is_empty());
     let moved = read(&home.project_dir(&all).join(format!("{SESSION}.jsonl")));
-    assert!(moved.contains(&format!("\"cwd\":\"{}\"", text(&all))));
+    assert!(moved.contains(&format!("\"cwd\":\"{}\"", in_json(&text(&all)))));
     // The subagent transcripts travel with their session.
     assert!(
         home.project_dir(&all)
@@ -587,8 +588,8 @@ fn import_into_another_folder_rewrites_the_paths() {
     assert_eq!(home.session_ids(&moved), [SESSION, OTHER]);
     assert!(home.session_ids(&app).is_empty());
     let transcript = read(&home.project_dir(&moved).join(format!("{SESSION}.jsonl")));
-    assert!(transcript.contains(&format!("\"cwd\":\"{}\"", text(&moved))));
-    assert!(!transcript.contains(&format!("{}/", text(&app))));
+    assert!(transcript.contains(&format!("\"cwd\":\"{}\"", in_json(&text(&moved)))));
+    assert!(!transcript.contains(&format!("{}/", in_json(&text(&app)))));
     assert_eq!(
         read(&home.project_dir(&moved).join("memory").join("note.md")),
         format!("lives in {}", text(&moved))
@@ -599,7 +600,7 @@ fn import_into_another_folder_rewrites_the_paths() {
         true
     );
     let prompts = read(&home.rt.layout.prompt_history());
-    assert!(prompts.contains(&format!("\"project\":\"{}\"", text(&moved))));
+    assert!(prompts.contains(&format!("\"project\":\"{}\"", in_json(&text(&moved)))));
 }
 
 #[test]

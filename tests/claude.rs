@@ -75,13 +75,14 @@ fn mv_repoints_every_place_claude_code_keeps_the_path() {
     let transcript = read(&dest.join(format!("{SESSION}.jsonl")));
     let new_str = new.to_string_lossy();
     let old_str = old.to_string_lossy();
-    assert!(transcript.contains(&format!("\"cwd\":\"{new_str}\"")));
-    assert!(transcript.contains(&format!("edit {new_str}/src/main.rs")));
-    assert!(transcript.contains(&format!("{new_str}/README")));
+    let new_json = in_json(&new_str);
+    assert!(transcript.contains(&format!("\"cwd\":\"{new_json}\"")));
+    assert!(transcript.contains(&format!("edit {new_json}/src/main.rs")));
+    assert!(transcript.contains(&format!("{new_json}/README")));
     // A longer name that merely starts with the old path is another folder.
-    assert!(transcript.contains(&format!("{old_str}-old")));
+    assert!(transcript.contains(&format!("{}-old", in_json(&old_str))));
     let subagent = read(&dest.join(SESSION).join("subagents").join("agent-a1.jsonl"));
-    assert!(subagent.contains(&*new_str));
+    assert!(subagent.contains(&new_json));
     let note = read(&dest.join("memory").join("note.md"));
     assert!(note.contains(&project_slug(&new_str)));
     assert!(note.contains(&*new_str));
@@ -95,8 +96,11 @@ fn mv_repoints_every_place_claude_code_keeps_the_path() {
     assert_eq!(config["githubRepoPaths"]["me/app"], json!([new_str]));
 
     let prompts = read(&home.rt.layout.prompt_history());
-    assert!(prompts.contains(&format!("\"project\":\"{new_str}\"")));
-    assert!(prompts.contains(&format!("\"project\":\"{}\"", other.to_string_lossy())));
+    assert!(prompts.contains(&format!("\"project\":\"{new_json}\"")));
+    assert!(prompts.contains(&format!(
+        "\"project\":\"{}\"",
+        in_json(&other.to_string_lossy())
+    )));
 
     let desk: Value = serde_json::from_str(&read(&desktop)).unwrap();
     assert_eq!(desk["cwd"], json!(new_str));
@@ -115,6 +119,7 @@ fn mv_repoints_every_place_claude_code_keeps_the_path() {
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn mv_keeps_file_permissions() {
     use std::os::unix::fs::PermissionsExt;
@@ -287,6 +292,7 @@ fn a_merge_with_clashing_files_changes_nothing() {
     assert_eq!(home.snapshot(), before);
 }
 
+#[cfg(unix)]
 #[test]
 fn a_failure_halfway_rolls_everything_back() {
     use std::os::unix::fs::PermissionsExt;
@@ -319,8 +325,8 @@ fn a_failure_halfway_rolls_everything_back() {
 #[test]
 fn replace_moves_every_project_under_a_prefix() {
     let home = Home::new();
-    let a = home.root.join("older/a");
-    let b = home.root.join("older/b");
+    let a = home.path("older/a");
+    let b = home.path("older/b");
     let keep = home.folder("elsewhere");
     home.folder("upgraded/a");
     home.folder("upgraded/b");
@@ -328,13 +334,14 @@ fn replace_moves_every_project_under_a_prefix() {
     home.session(&b, OTHER);
     home.session(&keep, "33333333-3333-4333-8333-333333333333");
 
-    let (plans, report) =
-        ops::plan_move(&home.rt, &[], Some(("/older/", "/upgraded/")), false, false).unwrap();
+    let sep = std::path::MAIN_SEPARATOR;
+    let (from, to) = (format!("{sep}older{sep}"), format!("{sep}upgraded{sep}"));
+    let (plans, report) = ops::plan_move(&home.rt, &[], Some((&from, &to)), false, false).unwrap();
     assert_eq!(plans.len(), 2);
     ops::execute_move(&home.rt, plans, report).unwrap();
 
-    assert!(home.project_dir(&home.root.join("upgraded/a")).exists());
-    assert!(home.project_dir(&home.root.join("upgraded/b")).exists());
+    assert!(home.project_dir(&home.path("upgraded/a")).exists());
+    assert!(home.project_dir(&home.path("upgraded/b")).exists());
     assert!(home.project_dir(&keep).exists());
     assert!(!home.project_dir(&a).exists());
 }
@@ -406,8 +413,8 @@ fn rm_removes_a_project_and_everything_keyed_to_its_sessions() {
     let config = home.read_config();
     assert_eq!(config["projects"].as_object().unwrap().len(), 1);
     let prompts = read(&home.rt.layout.prompt_history());
-    assert!(!prompts.contains(&*app.to_string_lossy()));
-    assert!(prompts.contains(&*other.to_string_lossy()));
+    assert!(!prompts.contains(&in_json(&app.to_string_lossy())));
+    assert!(prompts.contains(&in_json(&other.to_string_lossy())));
 }
 
 #[test]

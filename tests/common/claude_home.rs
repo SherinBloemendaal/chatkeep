@@ -65,8 +65,14 @@ impl Home {
         }
     }
 
+    /// `name` under the fake home, `/`-separated, with the platform's own separator.
+    pub fn path(&self, name: &str) -> PathBuf {
+        name.split('/')
+            .fold(self.root.clone(), |path, part| path.join(part))
+    }
+
     pub fn folder(&self, name: &str) -> PathBuf {
-        let dir = self.root.join(name);
+        let dir = self.path(name);
         fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -286,6 +292,12 @@ fn collect(dir: &Path, out: &mut Vec<(PathBuf, Vec<u8>)>) {
             out.push((path.clone(), fs::read(&path).unwrap()));
         }
     }
+}
+
+/// `text` as it reads inside a JSON string: on Windows every `\\` of a path is doubled there.
+pub fn in_json(text: &str) -> String {
+    let quoted = serde_json::to_string(text).unwrap();
+    quoted[1..quoted.len() - 1].to_string()
 }
 
 pub fn read(path: &Path) -> String {

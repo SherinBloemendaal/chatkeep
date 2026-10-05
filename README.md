@@ -28,6 +28,7 @@ Repo: [github.com/SherinBloemendaal/chatkeep](https://github.com/SherinBloemenda
 - **One command, every tool.** `ls`, `mv`, `cp`, `rm`, `split`, `combine`, `export`, `import`, `stats`, and the queue work on Cursor and on Claude Code. `--tool` limits a run to one of them.
 - **Reshape history.** `split` and `combine` hand chats to other projects, as copies or for good.
 - **Safe writes.** Refuses while the tool still uses the chats, writes with an undo journal, and `-n` previews first.
+- **Accounts stay in step.** `chatkeep claude sync auto on` keeps the chat lists of your Claude desktop accounts the same in the background: new chats and new titles show up under every account of a sync profile.
 - **Queue for later.** Blocked commands go into a queue that runs once the tool is closed.
 - **Every installation.** Sees each Cursor profile, including windows started with `--user-data-dir`, and every account of the Claude desktop app.
 - **Local only.** It never contacts the servers of Cursor or Anthropic. See [DISCLAIMER.md](DISCLAIMER.md).
@@ -63,8 +64,8 @@ powershell -c "irm https://sherin.dev/chatkeep/install.ps1|iex"
 
 Checked against `SHA256SUMS` on the GitHub release:
 
-| Platform             | Asset                                      |
-| -------------------- | ------------------------------------------ |
+| Platform             | Asset                                       |
+| -------------------- | ------------------------------------------- |
 | macOS Apple Silicon  | `chatkeep-aarch64-apple-darwin.tar.gz`      |
 | macOS Intel          | `chatkeep-x86_64-apple-darwin.tar.gz`       |
 | Linux x86_64 (glibc) | `chatkeep-x86_64-unknown-linux-gnu.tar.gz`  |
@@ -126,45 +127,69 @@ A command for both tools runs Claude Code's half first. When Cursor is open, onl
 
 ## 🧰 Commands
 
-Any command with no arguments opens the picker (space toggles, Enter once, then one validation screen); with both tools installed it first asks which one. `chatkeep` with no command prints colored help.
+Without `--tool`, a command that names a project runs for every tool that has it. A command with no arguments opens a picker; with both tools installed it first asks which one. `chatkeep` on its own prints the help.
 
-These work on Cursor and on Claude Code. Without `--tool`, a command that names a project runs for every tool that has it:
+| Command                                  | What it does                                                     |
+| ---------------------------------------- | ---------------------------------------------------------------- |
+| `chatkeep ls [ID]`                       | List projects, or the chats of one. Alias: `list`.               |
+| `chatkeep mv [FROM] [TO]`                | Repath chats after a folder moved. Alias: `move`.                |
+| `chatkeep cp [FROM] [TO]`                | Copy a project's chats to another folder. Alias: `copy`.         |
+| `chatkeep split [SOURCE] [TARGETS...]`   | Copy chats from one project into separate projects.              |
+| `chatkeep combine [TARGET] [SOURCES...]` | Pull chats from several projects or single chats into one.       |
+| `chatkeep rm [TARGET]`                   | Remove a project's chats, or one chat. One confirmation.         |
+| `chatkeep export [TARGET] [FILE]`        | Write a `.chatkeep` archive. One archive holds one tool.         |
+| `chatkeep import [FILE] [TO]`            | Restore an archive, optionally into another folder.              |
+| `chatkeep stats`                         | Projects, chats, disk, tokens, and models.                       |
+| `chatkeep history`                       | The local command log of the last 30 days.                       |
+| `chatkeep queue ACTION`                  | Queue write commands while a tool is open. Exit 75 when blocked. |
 
-| Command                                               | What it does                                                                                     |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `chatkeep mv [FROM] [TO]`                             | Repath chats after a folder moved. Alias: `move`.                                                |
-| `chatkeep cp [FROM] [TO]`                             | Copy a project's chats to another folder; the copies get new ids. Alias: `copy`.                 |
-| `chatkeep split [SOURCE] [TARGETS...]`                | Copy chats from one project into separate projects.                                              |
-| `chatkeep combine [TARGET] [SOURCES...]`              | Pull chats from several projects or single chats into one target.                                |
-| `chatkeep ls`                                         | Table of projects. Alias: `list`. `ls <id>` shows the chat list.                                 |
-| `chatkeep rm [TARGET]`                                | Remove a project's chats, or one chat (including subagents). One confirmation.                   |
-| `chatkeep export [TARGET] [FILE]`                     | Write a `.chatkeep` gzip archive. One archive holds one tool.                                    |
-| `chatkeep import [FILE] [TO]`                         | Restore a `.chatkeep` archive; the archive says which tool. `TO` attaches it to another folder.  |
-| `chatkeep history`                                    | Local log at `~/.chatkeep/history.jsonl`. Entries older than 30 days are pruned on write.        |
-| `chatkeep stats`                                      | Projects, chats, disk, tokens, and models; for Cursor also usage cost and context size.          |
-| `chatkeep queue add\|list\|rm\|clear\|retry\|execute` | Queue write commands while a tool is open; run them after it closes. Exit code 75 when blocked.  |
+<details>
+<summary><b>Cursor only:</b> <code>chatkeep cursor …</code></summary>
 
-These exist for one tool only:
+<br>
 
-| Command                                               | What it does                                                                                     |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `chatkeep cursor save [ID] [TO]`                      | Attach an unsaved `Workspaces/<ts>` session to a folder or `.code-workspace`. Metadata only.     |
-| `chatkeep cursor rx [TARGET]`                         | Rebuild registry refs, rewrite leftover path refs, clear caches. Alias: `reindex`.               |
-| `chatkeep cursor cache clear\|scan\|stats`            | Clear, rescan, or inspect the persistent index behind `ls`, `stats`, and the pickers.            |
-| `chatkeep claude accounts ls`                         | The accounts of the Claude desktop app and how many chats each one lists.                        |
-| `chatkeep claude accounts cp [FROM] [TO]`             | Make the chats one account lists show up for another account. Default `TO`: the one signed in.   |
-| `chatkeep claude cache clear\|stats`                   | Clear or inspect the index of what every Claude Code transcript says.                            |
-| `chatkeep claude sync [PROFILE]`                      | Keep the chat lists of the accounts in a sync profile the same, in both directions.              |
-| `chatkeep claude sync set\|rm\|profiles\|watch\|auto`   | Manage sync profiles, watch for changes, or run the watcher in the background.                   |
+| Command                                    | What it does                                                                   |
+| ------------------------------------------ | ------------------------------------------------------------------------------ |
+| `chatkeep cursor save [ID] [TO]`           | Attach an unsaved `Workspaces/<ts>` session to a folder or `.code-workspace`.  |
+| `chatkeep cursor rx [TARGET]`              | Rebuild registry refs, rewrite leftover paths, clear caches. Alias: `reindex`. |
+| `chatkeep cursor cache clear\|scan\|stats` | Clear, rescan, or inspect the [index](#-index).                                |
 
-And these do not care about the tool:
+</details>
 
-| Command                                               | What it does                                                                                     |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `chatkeep help [COMMAND]`                             | Colored help, or every option of one command.                                                    |
-| `chatkeep update`                                     | Download and install the latest release for this OS.                                             |
-| `chatkeep uninstall`                                  | Remove the installed binary and its PATH entry. `--purge` also deletes `~/.chatkeep`.            |
-| `chatkeep github`                                     | Open the GitHub repository in the browser.                                                       |
+<details>
+<summary><b>Claude Code only:</b> <code>chatkeep claude …</code></summary>
+
+<br>
+
+| Command                                         | What it does                                                       |
+| ----------------------------------------------- | ------------------------------------------------------------------ |
+| `chatkeep claude accounts ls`                   | The accounts of the desktop app and how many chats each one lists. |
+| `chatkeep claude accounts cp [FROM] [TO]`       | List the chats of one account under another, once.                 |
+| `chatkeep claude sync [PROFILE]`                | Bring the accounts of a sync profile in step, in both directions.  |
+| `chatkeep claude sync set NAME ACCOUNT ACCOUNT` | Create or replace a sync profile.                                  |
+| `chatkeep claude sync profiles`                 | Show the sync profiles and whether the background sync runs.       |
+| `chatkeep claude sync rm NAME`                  | Remove a sync profile.                                             |
+| `chatkeep claude sync watch [PROFILE]`          | Keep syncing whenever a chat list changes, until stopped.          |
+| `chatkeep claude sync auto on\|off\|status`     | Run that watcher in the background from login on.                  |
+| `chatkeep claude cache clear\|stats`            | Clear or inspect the index of the transcripts.                     |
+
+See [Claude Code](#-claude-code) for what each of these does.
+
+</details>
+
+<details>
+<summary><b>Chatkeep itself</b></summary>
+
+<br>
+
+| Command                   | What it does                                                |
+| ------------------------- | ----------------------------------------------------------- |
+| `chatkeep help [COMMAND]` | The help screen, or every option of one command.            |
+| `chatkeep update`         | Download, verify, and install the latest release.           |
+| `chatkeep uninstall`      | Remove the binary, its PATH entry, and the background sync. |
+| `chatkeep github`         | Open the repository in the browser.                         |
+
+</details>
 
 <details>
 <summary><b>Command notes</b></summary>
@@ -193,31 +218,31 @@ A missing destination is a warning. That item is skipped.
 
 ### Shared flags
 
-| Flag                | Effect                                                |
-| ------------------- | ----------------------------------------------------- |
-| `-n`                | Dry-run. Show the plan and write nothing.             |
-| `-y`                | Skip the single warning prompt.                       |
+| Flag                | Effect                                                 |
+| ------------------- | ------------------------------------------------------ |
+| `-n`                | Dry-run. Show the plan and write nothing.              |
+| `-y`                | Skip the single warning prompt.                        |
 | `--profile NAME`    | Limit the run to one Cursor installation. Cursor only. |
-| `--tool TOOL`       | Only `cursor` or `claude`. Default: every tool found. |
-| `--replace FROM TO` | Batch-rewrite a path prefix.                          |
-| `--regex`           | Treat `--replace` FROM as a regular expression.       |
+| `--tool TOOL`       | Only `cursor` or `claude`. Default: every tool found.  |
+| `--replace FROM TO` | Batch-rewrite a path prefix.                           |
+| `--regex`           | Treat `--replace` FROM as a regular expression.        |
 | `--unsaved`         | Only unsaved `Workspaces/<ts>` sessions. Cursor only.  |
-| `--color WHEN`      | Color output: `auto` (default), `always`, or `never`. |
+| `--color WHEN`      | Color output: `auto` (default), `always`, or `never`.  |
 
 `auto` colors a terminal and honors `NO_COLOR`, `CLICOLOR_FORCE`, `FORCE_COLOR`, `CLICOLOR=0`, and `TERM=dumb`.
 
 ### Command flags
 
-| Flag                  | Commands           | Effect                                                |
-| --------------------- | ------------------ | ----------------------------------------------------- |
-| `--project`           | `mv`, `cp`         | Also move or copy the real project folder.            |
-| `--move`              | `split`, `combine` | Move the chats instead of copying them.               |
-| `--copy`              | `combine`          | Keep the chats in the sources (the default).          |
-| `--overwrite`         | `import`           | Replace chats that already exist instead of skipping. |
-| `--continue-on-error` | `queue execute`    | Keep going after an entry fails.                      |
-| `--full`              | `queue list`       | Show stored commands in full instead of shortened.    |
-| `--fresh`             | `ls`, `stats`      | Read every file again, then refresh the index.        |
-| `--full`              | `cursor cache scan` | Rebuild the index from scratch.                      |
+| Flag                  | Commands            | Effect                                                |
+| --------------------- | ------------------- | ----------------------------------------------------- |
+| `--project`           | `mv`, `cp`          | Also move or copy the real project folder.            |
+| `--move`              | `split`, `combine`  | Move the chats instead of copying them.               |
+| `--copy`              | `combine`           | Keep the chats in the sources (the default).          |
+| `--overwrite`         | `import`            | Replace chats that already exist instead of skipping. |
+| `--continue-on-error` | `queue execute`     | Keep going after an entry fails.                      |
+| `--full`              | `queue list`        | Show stored commands in full instead of shortened.    |
+| `--fresh`             | `ls`, `stats`       | Read every file again, then refresh the index.        |
+| `--full`              | `cursor cache scan` | Rebuild the index from scratch.                       |
 
 ### Examples
 
@@ -237,8 +262,8 @@ For Cursor, `ls`, `ls <id>`, `stats`, the pickers, and the split auto-suggest re
 > [!TIP]
 > Write commands never trust the index: they read live data before and while they write. After a successful write the installation is marked dirty, so the next read refreshes it first.
 
-| Command                                | What it does                                                                                    |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Command                                        | What it does                                                                                    |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `chatkeep cursor cache stats`                  | Index size and schema, last scan and stale sources per installation, and the background status. |
 | `chatkeep cursor cache scan [--profile NAME]`  | Refresh now with progress bars. `--full` rebuilds. `-n` only lists what is stale.               |
 | `chatkeep cursor cache clear [--profile NAME]` | Delete the index, or only one installation's rows. One confirmation. Refused during a refresh.  |
@@ -280,16 +305,16 @@ Every shared command works on Claude Code. Without `--tool`, a command runs for 
 
 Claude Code keeps one folder per path in `~/.claude/projects/`, named after the path with every character outside `A-Z`, `a-z`, and `0-9` turned into `-` (paths longer than 200 characters are cut and get a hash, exactly as Claude Code does). `CLAUDE_CONFIG_DIR` is honored for both `~/.claude` and `.claude.json`.
 
-| Command   | What it does for Claude Code                                                                                                                                                                                                                  |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Command   | What it does for Claude Code                                                                                                                                                                                                                      |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `mv`      | Moves the project folder, or merges it into the destination's, and rewrites the old path in transcripts, subagent transcripts, tool output, and memory. Moves the entry in `~/.claude.json`, and repoints the prompt history and the desktop app. |
-| `cp`      | Gives the new folder its own copy of every chat, under a new session id, with the paths rewritten. Copies memory, settings, rewind checkpoints, and the desktop app's entries.                                                                 |
-| `split`   | Hands chats to the projects of other folders, as copies or with `--move`. The paths a chat mentions stay as they are: the files it worked on did not move.                                                                                     |
-| `combine` | The same, from several projects or single sessions into one.                                                                                                                                                                                   |
-| `rm`      | `rm PATH` removes a project, `rm SESSION_ID` one session, with everything keyed to those sessions: `file-history`, `session-env`, `todos`, the prompts in `history.jsonl`, and the desktop app's entries.                                      |
-| `export`  | Packs the project into a `.chatkeep` archive (see [Export archive](#-export-archive)).                                                                                                                                                         |
-| `import`  | Restores it, optionally into another folder.                                                                                                                                                                                                   |
-| `stats`   | Projects, sessions, subagents, tokens (each answer counted once), models, and sessions per month.                                                                                                                                              |
+| `cp`      | Gives the new folder its own copy of every chat, under a new session id, with the paths rewritten. Copies memory, settings, rewind checkpoints, and the desktop app's entries.                                                                    |
+| `split`   | Hands chats to the projects of other folders, as copies or with `--move`. The paths a chat mentions stay as they are: the files it worked on did not move.                                                                                        |
+| `combine` | The same, from several projects or single sessions into one.                                                                                                                                                                                      |
+| `rm`      | `rm PATH` removes a project, `rm SESSION_ID` one session, with everything keyed to those sessions: `file-history`, `session-env`, `todos`, the prompts in `history.jsonl`, and the desktop app's entries.                                         |
+| `export`  | Packs the project into a `.chatkeep` archive (see [Export archive](#-export-archive)).                                                                                                                                                            |
+| `import`  | Restores it, optionally into another folder.                                                                                                                                                                                                      |
+| `stats`   | Projects, sessions, subagents, tokens (each answer counted once), models, and sessions per month.                                                                                                                                                 |
 
 A merge stops before it starts when both projects hold a different file with the same name. Identical files are kept once, and the two `memory/MEMORY.md` indexes are merged line by line.
 

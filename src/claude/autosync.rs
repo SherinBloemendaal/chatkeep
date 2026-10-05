@@ -1,6 +1,6 @@
 //! The background runner of `chatkeep claude sync watch`: a per-user launch agent on macOS.
 
-use anyhow::{Context, Result, bail};
+use anyhow::Result;
 use std::path::{Path, PathBuf};
 
 use crate::ui;
@@ -83,6 +83,7 @@ pub fn inherited_env() -> Vec<(String, String)> {
 #[cfg(target_os = "macos")]
 mod platform {
     use super::*;
+    use anyhow::{Context, bail};
     use std::os::unix::fs::MetadataExt;
     use std::process::Command;
 
