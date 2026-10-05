@@ -852,7 +852,12 @@ pub fn suggest_split(
         ));
         let mut hits = Vec::new();
         for path in touched_paths(&session.transcript)? {
-            if let Some(target) = longest_target(&path, &roots)
+            // The same spelling as the targets: separators, case, and prefix as chatkeep
+            // normalizes them. A relative path says nothing about where it was.
+            if !path.is_absolute() {
+                continue;
+            }
+            if let Some(target) = longest_target(&rt.resolve_path(&path), &roots)
                 && !hits.contains(&target)
             {
                 hits.push(target);
