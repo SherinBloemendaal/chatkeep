@@ -6,6 +6,7 @@ use anyhow::{Context, Result};
 use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 use super::Layout;
 
@@ -18,6 +19,8 @@ pub struct DesktopSession {
     pub cli_session: Option<String>,
     pub cwd: Option<String>,
     pub title: Option<String>,
+    /// When the app last wrote the entry: the chat's last activity, as far as the list knows.
+    pub modified: Option<SystemTime>,
 }
 
 pub fn sessions(layout: &Layout) -> Result<Vec<DesktopSession>> {
@@ -48,6 +51,7 @@ pub fn sessions(layout: &Layout) -> Result<Vec<DesktopSession>> {
                     cli_session: text("cliSessionId"),
                     cwd: text("cwd"),
                     title: text("title"),
+                    modified: fs::metadata(&file).and_then(|meta| meta.modified()).ok(),
                     file,
                 });
             }

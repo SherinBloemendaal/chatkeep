@@ -201,8 +201,8 @@ pub const GROUPS: &[Group] = &[
                 ("◈", "o"),
                 "claude",
                 &[],
-                "accounts ls|cp",
-                "Desktop app accounts; copy chats from one to another",
+                "accounts ls|cp|name",
+                "Desktop app accounts; also doctor and prune",
             ),
             entry(
                 ("⇄", "="),
@@ -369,8 +369,8 @@ pub const EXAMPLES: &[(&str, &str)] = &[
         "Queue a move while the tool is still open",
     ),
     (
-        "chatkeep claude sync set work A B",
-        "Let accounts A and B share their chat lists",
+        "chatkeep claude sync set work",
+        "Pick the accounts that share their chat lists",
     ),
     (
         "chatkeep claude sync auto on",

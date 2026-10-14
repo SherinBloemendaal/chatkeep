@@ -4,12 +4,16 @@ use anyhow::{Result, bail};
 use std::path::PathBuf;
 use std::time::Instant;
 
+use crate::claude::accounts::Listing;
+use crate::claude::identity::Book;
 use crate::claude::{
-    self, accounts, archive, autosync, index, ops, stats, store, sync, transfer, view,
+    self, accounts, archive, autosync, doctor, identity, index, ops, stats, store, sync, transfer,
+    view,
 };
 use crate::cli::{
-    self, AccountCpArgs, AccountsAction, ClaudeCacheAction, ClaudeCommand, CombineArgs, Command,
-    CommonArgs, ExportArgs, ImportArgs, Outcome, PathArgs, SplitArgs, SyncAction, SyncAutoAction,
+    self, AccountCpArgs, AccountNameArgs, AccountsAction, ClaudeCacheAction, ClaudeCommand,
+    CombineArgs, Command, CommonArgs, ExportArgs, ImportArgs, Outcome, PathArgs, SplitArgs,
+    SyncAction, SyncAutoAction,
 };
 use crate::engine::{Report, append_history};
 use crate::ui::{self, Theme, validation};
@@ -84,6 +88,13 @@ pub fn perform(rt: &claude::Runtime, command: Command) -> Result<Outcome> {
             ClaudeCommand::Accounts(args) => match args.action {
                 AccountsAction::Ls => Ok(text(accounts::render(rt, Theme::stdout())?)),
                 AccountsAction::Cp(args) => copy_account(rt, args),
+                AccountsAction::Name(args) => name_account(rt, args),
+                AccountsAction::Doctor => {
+                    let checkup = doctor::checkup(rt, doctor::cli_on_path())?;
+                    let book = identity::book(rt)?;
+                    Ok(text(doctor::render(Theme::stdout(), &checkup, &book)))
+                }
+                AccountsAction::Prune(_) => prune_caches(rt),
             },
             ClaudeCommand::Cache(args) => match args.action {
                 ClaudeCacheAction::Clear(_) => clear_cache(rt),
@@ -92,8 +103,9 @@ pub fn perform(rt: &claude::Runtime, command: Command) -> Result<Outcome> {
             ClaudeCommand::Sync(args) => match args.action {
                 None => run_sync(rt, args.profile.as_deref()),
                 Some(SyncAction::Profiles) => Ok(text(sync_profiles(rt)?)),
-                Some(SyncAction::Set(args)) => set_sync_profile(rt, &args.name, &args.accounts),
-                Some(SyncAction::Rm(args)) => remove_sync_profile(rt, &args.name),
+                Some(SyncAction::Set(args)) => set_sync_profile(rt, &args.name, args.accounts),
+                Some(SyncAction::Add(args)) => add_to_sync_profile(rt, &args.name, args.accounts),
+                Some(SyncAction::Rm(args)) => remove_sync_profile(rt, &args.name, args.accounts),
                 Some(SyncAction::Watch(args)) => {
                     watch_sync(rt, args.profile.as_deref(), args.interval)
                 }
@@ -422,31 +434,131 @@ fn pick_account(rt: &claude::Runtime, to: Option<&str>) -> Result<String> {
         Some(to) => Some(to.to_string()),
         None => accounts::current(&rt.layout),
     };
-    let mut others: Vec<String> = accounts::listings(&rt.layout)?
-        .into_iter()
-        .map(|listing| listing.account)
-        .filter(|account| {
+    let book = identity::book(rt)?;
+    let target = target.map(|target| book.expand(&target));
+    let listings = accounts::listings(&rt.layout)?;
+    let mut others: Vec<&Listing> = listings
+        .iter()
+        .filter(|listing| {
             target
                 .as_deref()
-                .is_none_or(|target| !account.starts_with(target))
+                .is_none_or(|target| !listing.account.starts_with(target))
         })
         .collect();
-    others.dedup();
+    others.dedup_by(|a, b| a.account == b.account);
     match others.as_slice() {
         [] => bail!("the desktop app has no other account on this machine to copy chats from"),
-        [only] => Ok(only.clone()),
+        [only] => Ok(only.account.clone()),
         _ if !rt.interactive => Err(ui::hinted(
             "accounts cp needs the account to copy from",
-            format!("Pass one of: {}.", others.join(", ")),
+            format!(
+                "Pass one of: {}.",
+                others
+                    .iter()
+                    .map(|listing| book.label(&listing.account))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         )),
         _ => {
-            let labels: Vec<&str> = others.iter().map(String::as_str).collect();
+            let rows = accounts::picker_rows(&book, &others, ui::term::stderr_width());
+            let labels: Vec<&str> = rows.iter().map(String::as_str).collect();
             Ok(
                 others[ui::select("Copy chats from which account?", &labels, rt.interactive)?]
+                    .account
                     .clone(),
             )
         }
     }
+}
+
+/// `accounts name`: give an account a name, picking the account and asking the name when they
+/// are not given.
+fn name_account(rt: &claude::Runtime, args: AccountNameArgs) -> Result<Outcome> {
+    let book = identity::book(rt)?;
+    let listings = accounts::listings(&rt.layout)?;
+    let account = match args.account {
+        Some(spec) => account_of(&listings, &book, &spec)?,
+        None => {
+            let mut choices: Vec<&Listing> = listings.iter().collect();
+            choices.dedup_by(|a, b| a.account == b.account);
+            if choices.is_empty() {
+                bail!("the desktop app has no account on this machine to name");
+            }
+            if !rt.interactive {
+                return Err(ui::hinted(
+                    "accounts name needs the account to name",
+                    "Pass its id or the start of it; chatkeep claude accounts ls shows them.",
+                ));
+            }
+            let rows = accounts::picker_rows(&book, &choices, ui::term::stderr_width());
+            let labels: Vec<&str> = rows.iter().map(String::as_str).collect();
+            choices[ui::select("Name which account?", &labels, rt.interactive)?]
+                .account
+                .clone()
+        }
+    };
+    let name = match (args.clear, args.name) {
+        (true, _) => None,
+        (false, Some(name)) => Some(name),
+        (false, None) => Some(ui::input(
+            &format!("Name for {}", book.label(&account)),
+            rt.interactive,
+        )?),
+    };
+    identity::set_name(rt, &account, name.as_deref())?;
+    let mut report = Report::default();
+    report.applied.push(match &name {
+        Some(name) => format!("name account {} -> {name}", identity::short(&account)),
+        None => format!("clear the name of account {}", identity::short(&account)),
+    });
+    Ok(finished(rt, "Account name", report))
+}
+
+/// The one account `spec` names, whatever organizations it has.
+fn account_of(listings: &[Listing], book: &Book, spec: &str) -> Result<String> {
+    let wanted = book.expand(spec);
+    let wanted = wanted.split('/').next().unwrap_or_default();
+    let mut found: Vec<&str> = listings
+        .iter()
+        .map(|listing| listing.account.as_str())
+        .filter(|account| !wanted.is_empty() && account.starts_with(wanted))
+        .collect();
+    found.dedup();
+    match found.as_slice() {
+        [only] => Ok((*only).to_string()),
+        [] => Err(ui::hinted(
+            format!("the desktop app has no account {spec} on this machine"),
+            "Run chatkeep claude accounts ls to see the accounts it has.",
+        )),
+        _ => bail!("{spec} matches several accounts: {}", found.join(", ")),
+    }
+}
+
+/// `accounts prune`: show the cache entries of accounts not in use, and remove them after a yes.
+fn prune_caches(rt: &claude::Runtime) -> Result<Outcome> {
+    let plan = doctor::plan_prune(rt)?;
+    let book = identity::book(rt)?;
+    if !plan.stale.is_empty() && !rt.quiet {
+        print!(
+            "{}",
+            validation(
+                Theme::stdout(),
+                "Cache entries of accounts not in use",
+                &["cache", "belongs to"],
+                &plan.rows(&book),
+                &[]
+            )
+        );
+    }
+    if !plan.stale.is_empty()
+        && !rt.dry_run
+        && !ui::confirm("Remove these cache entries?", rt.yes, rt.interactive)?
+    {
+        bail!("aborted");
+    }
+    let report = doctor::execute_prune(rt, &plan)?;
+    Ok(finished(rt, "Accounts prune", report))
 }
 
 fn clear_cache(rt: &claude::Runtime) -> Result<Outcome> {
@@ -607,19 +719,22 @@ fn sync_profiles(rt: &claude::Runtime) -> Result<String> {
             ui::info_line(theme, "No sync profile exists yet."),
             ui::hint_line(
                 theme,
-                "Create one with: chatkeep claude sync set NAME ACCOUNT ACCOUNT"
+                "Create one with: chatkeep claude sync set NAME (pick the accounts from a list)"
             )
         ));
     }
     let signed_in = accounts::current(&rt.layout);
+    let book = identity::book(rt)?;
     let mut sheet = ui::Sheet::new(
         theme,
         &[
             ("profile", ui::Align::Left),
             ("account", ui::Align::Left),
+            ("id", ui::Align::Left),
             ("state", ui::Align::Left),
         ],
-    );
+    )
+    .optional(&[2]);
     for (name, profile) in &config.profiles {
         for account in &profile.accounts {
             let here = signed_in
@@ -627,7 +742,12 @@ fn sync_profiles(rt: &claude::Runtime) -> Result<String> {
                 .is_some_and(|current| account.starts_with(current));
             sheet.row(vec![
                 theme.cell(name, Some(comfy_table::Color::Cyan), &[]),
-                theme.cell(account, Some(comfy_table::Color::Magenta), &[]),
+                theme.cell(
+                    book.label(account_id(account)),
+                    Some(comfy_table::Color::Magenta),
+                    &[],
+                ),
+                theme.cell(account, None, &[comfy_table::Attribute::Dim]),
                 theme.cell(if here { "signed in" } else { "" }, None, &[]),
             ]);
         }
@@ -638,22 +758,258 @@ fn sync_profiles(rt: &claude::Runtime) -> Result<String> {
     ))
 }
 
-fn set_sync_profile(rt: &claude::Runtime, name: &str, specs: &[String]) -> Result<Outcome> {
-    let profile = sync::set_profile(rt, name, specs)?;
+/// The account part of a profile's `account/organization` label.
+fn account_id(label: &str) -> &str {
+    label.split('/').next().unwrap_or(label)
+}
+
+/// A profile's accounts as people read them. An account that syncs with several of its
+/// organizations names the organization too.
+fn describe(book: &Book, labels: &[String]) -> String {
+    labels
+        .iter()
+        .map(|label| {
+            let account = account_id(label);
+            let mut text = book.label(account);
+            let repeated = labels
+                .iter()
+                .filter(|other| account_id(other) == account)
+                .count()
+                > 1;
+            if repeated && let Some((_, organization)) = label.split_once('/') {
+                text.push_str(&format!(" (org {})", identity::short(organization)));
+            }
+            text
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Let the user check accounts in a list. Only `offered` listings are shown; those in
+/// `checked` start checked. Returns the `account/organization` labels picked.
+fn pick_listings(
+    rt: &claude::Runtime,
+    book: &Book,
+    prompt: &str,
+    offered: &[&Listing],
+    checked: &[String],
+) -> Result<Vec<String>> {
+    let rows = accounts::picker_rows(book, offered, ui::term::stderr_width());
+    let ticks: Vec<bool> = offered
+        .iter()
+        .map(|listing| checked.contains(&listing.label()))
+        .collect();
+    let picked = ui::multi_select_checked(prompt, &rows, &ticks, rt.interactive)?;
+    Ok(picked
+        .into_iter()
+        .map(|index| offered[index].label())
+        .collect())
+}
+
+/// Accounts that sync in a profile other than `name`, by label, with that profile.
+fn taken_elsewhere(config: &sync::Config, name: &str) -> Vec<(String, String)> {
+    config
+        .profiles
+        .iter()
+        .filter(|(other, _)| other.as_str() != name)
+        .flat_map(|(other, profile)| {
+            profile
+                .accounts
+                .iter()
+                .map(move |label| (label.clone(), other.clone()))
+        })
+        .collect()
+}
+
+fn needs_terminal(action: &str, name: &str) -> anyhow::Error {
+    ui::hinted(
+        format!("sync {action} {name} needs the accounts"),
+        "Name them (a name, e-mail address or id each), or run this in a terminal to pick them from a list. chatkeep claude accounts ls shows them.",
+    )
+}
+
+fn set_sync_profile(rt: &claude::Runtime, name: &str, specs: Vec<String>) -> Result<Outcome> {
+    let book = identity::book(rt)?;
+    let specs = if specs.is_empty() {
+        if !rt.interactive {
+            return Err(needs_terminal("set", name));
+        }
+        let config = sync::load(&rt.layout.chatkeep_home)?;
+        let taken = taken_elsewhere(&config, name);
+        let listings = accounts::listings(&rt.layout)?;
+        let offered: Vec<&Listing> = listings
+            .iter()
+            .filter(|listing| !taken.iter().any(|(label, _)| *label == listing.label()))
+            .collect();
+        if offered.len() < 2 {
+            bail!("fewer than two accounts are free to sync in profile {name}");
+        }
+        note_taken(&book, &listings, &taken, rt.quiet);
+        let current = config
+            .profiles
+            .get(name)
+            .map(|profile| profile.accounts.clone())
+            .unwrap_or_default();
+        let picked = pick_listings(
+            rt,
+            &book,
+            &format!("Accounts of profile {name} (space checks, enter saves)"),
+            &offered,
+            &current,
+        )?;
+        if picked.len() < 2 {
+            bail!("pick at least two accounts for profile {name}");
+        }
+        picked
+    } else {
+        specs
+    };
+    let profile = sync::set_profile(rt, name, &specs)?;
     let mut report = Report::default();
     report.applied.push(format!(
         "set profile {name} -> {}",
-        profile.accounts.join(", ")
+        describe(&book, &profile.accounts)
     ));
     Ok(finished(rt, "Sync profile", report))
 }
 
-fn remove_sync_profile(rt: &claude::Runtime, name: &str) -> Result<Outcome> {
-    if !sync::remove_profile(rt, name)? {
-        bail!("no sync profile named {name}");
+/// Say which accounts the picker leaves out because another profile has them.
+fn note_taken(book: &Book, listings: &[Listing], taken: &[(String, String)], quiet: bool) {
+    let shown: Vec<String> = taken
+        .iter()
+        .filter(|(label, _)| listings.iter().any(|listing| listing.label() == *label))
+        .map(|(label, profile)| format!("{} (in {profile})", book.label(account_id(label))))
+        .collect();
+    if !shown.is_empty() && !quiet {
+        eprintln!(
+            "{}",
+            ui::hint_line(
+                Theme::stderr(),
+                &format!(
+                    "Not listed, they sync in another profile: {}",
+                    shown.join(", ")
+                )
+            )
+        );
+    }
+}
+
+fn add_to_sync_profile(rt: &claude::Runtime, name: &str, specs: Vec<String>) -> Result<Outcome> {
+    let book = identity::book(rt)?;
+    let specs = if specs.is_empty() {
+        let config = sync::load(&rt.layout.chatkeep_home)?;
+        if !config.profiles.contains_key(name) {
+            return Err(ui::hinted(
+                format!("no sync profile named {name}"),
+                format!("Create it with: chatkeep claude sync set {name}"),
+            ));
+        }
+        if !rt.interactive {
+            return Err(needs_terminal("add", name));
+        }
+        let in_any: Vec<(String, String)> = taken_elsewhere(&config, "");
+        let listings = accounts::listings(&rt.layout)?;
+        let offered: Vec<&Listing> = listings
+            .iter()
+            .filter(|listing| !in_any.iter().any(|(label, _)| *label == listing.label()))
+            .collect();
+        if offered.is_empty() {
+            bail!("every account on this machine already syncs in a profile");
+        }
+        let elsewhere: Vec<(String, String)> = in_any
+            .into_iter()
+            .filter(|(_, profile)| profile != name)
+            .collect();
+        note_taken(&book, &listings, &elsewhere, rt.quiet);
+        let picked = pick_listings(
+            rt,
+            &book,
+            &format!("Add to profile {name} (space checks, enter saves)"),
+            &offered,
+            &[],
+        )?;
+        if picked.is_empty() {
+            bail!("no account picked");
+        }
+        picked
+    } else {
+        specs
+    };
+    let profile = sync::add_to_profile(rt, name, &specs)?;
+    let mut report = Report::default();
+    report.applied.push(format!(
+        "profile {name} -> {}",
+        describe(&book, &profile.accounts)
+    ));
+    Ok(finished(rt, "Sync profile", report))
+}
+
+/// `sync rm NAME [ACCOUNTS]`: take accounts out of a profile, or remove the profile. At a
+/// terminal, a bare `sync rm NAME` asks which of the two is meant.
+fn remove_sync_profile(rt: &claude::Runtime, name: &str, specs: Vec<String>) -> Result<Outcome> {
+    let book = identity::book(rt)?;
+    let mut specs = specs;
+    if specs.is_empty() && rt.interactive && !rt.yes {
+        let config = sync::load(&rt.layout.chatkeep_home)?;
+        let Some(profile) = config.profiles.get(name) else {
+            bail!("no sync profile named {name}");
+        };
+        let choice = ui::select(
+            &format!("What should go from profile {name}?"),
+            &["Some of its accounts", "The whole profile"],
+            true,
+        )?;
+        if choice == 0 {
+            let listings = accounts::listings(&rt.layout)?;
+            let members: Vec<&Listing> = profile
+                .accounts
+                .iter()
+                .filter_map(|label| listings.iter().find(|listing| listing.label() == *label))
+                .collect();
+            let missing: Vec<&String> = profile
+                .accounts
+                .iter()
+                .filter(|label| !listings.iter().any(|listing| listing.label() == **label))
+                .collect();
+            let mut rows = accounts::picker_rows(&book, &members, ui::term::stderr_width());
+            rows.extend(missing.iter().map(|label| {
+                format!(
+                    "{}  (no longer on this machine)",
+                    book.label(account_id(label))
+                )
+            }));
+            let labels: Vec<String> = members
+                .iter()
+                .map(|listing| listing.label())
+                .chain(missing.iter().map(|label| (*label).clone()))
+                .collect();
+            let picked = ui::multi_select(
+                &format!("Remove from profile {name} (space checks, enter saves)"),
+                &rows,
+                true,
+            )?;
+            if picked.is_empty() {
+                bail!("no account picked");
+            }
+            specs = picked
+                .into_iter()
+                .map(|index| labels[index].clone())
+                .collect();
+        }
     }
     let mut report = Report::default();
-    report.applied.push(format!("remove profile {name}"));
+    if specs.is_empty() {
+        if !sync::remove_profile(rt, name)? {
+            bail!("no sync profile named {name}");
+        }
+        report.applied.push(format!("remove profile {name}"));
+    } else {
+        let profile = sync::remove_from_profile(rt, name, &specs)?;
+        report.applied.push(format!(
+            "profile {name} -> {}",
+            describe(&book, &profile.accounts)
+        ));
+    }
     Ok(finished(rt, "Sync profile", report))
 }
 

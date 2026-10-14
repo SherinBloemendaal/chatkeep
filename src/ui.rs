@@ -14,7 +14,9 @@ pub use chart::{BAR_SPAN, blocks, share};
 pub use help::{command_help, help_text, print_help};
 pub use layout::Grid;
 pub use progress::{Checklist, DualProgress, Mark, Spinner, spinner};
-pub use prompt::{confirm, input, interactive, multi_select, picker_label, select};
+pub use prompt::{
+    confirm, input, interactive, multi_select, multi_select_checked, picker_label, select,
+};
 pub use sheet::{Align, Plan, Sheet, column_width, is_bare_number};
 pub use term::{ColorMode, Depth};
 
