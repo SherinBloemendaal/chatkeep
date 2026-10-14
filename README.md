@@ -44,7 +44,7 @@ curl -fsSL https://sherin.dev/chatkeep/install.sh | bash
 Pin a release with `bash -s`:
 
 ```bash
-curl -fsSL https://sherin.dev/chatkeep/install.sh | bash -s v1.1.0
+curl -fsSL https://sherin.dev/chatkeep/install.sh | bash -s v1.2.0
 ```
 
 The script installs `chatkeep` to `~/.chatkeep/bin` (override with `CHATKEEP_INSTALL`). It adds that directory to your zsh, bash, or fish config when the line is missing, and links `chatkeep` into the first writable directory already on your `PATH` (`~/.local/bin`, `~/bin`, `/opt/homebrew/bin`, or `/usr/local/bin`), so it works at once in every open terminal. Without such a directory it prints the one `source` command that loads it. Run it again to upgrade in place. `chatkeep uninstall` removes the binary, that link, and that PATH line. `--purge` also deletes `~/.chatkeep`.
@@ -55,7 +55,7 @@ The script installs `chatkeep` to `~/.chatkeep/bin` (override with `CHATKEEP_INS
 powershell -c "irm https://sherin.dev/chatkeep/install.ps1|iex"
 ```
 
-`$env:CHATKEEP_VERSION` pins a tag (`v1.1.0`). `$env:CHATKEEP_INSTALL` overrides the install directory (default `%USERPROFILE%\.chatkeep\bin`). The script adds that directory to the user PATH when it is missing, and prints a one-line `$env:Path` command for terminals that were already open. `chatkeep uninstall` removes that user PATH entry. `--purge` also deletes `%USERPROFILE%\.chatkeep`.
+`$env:CHATKEEP_VERSION` pins a tag (`v1.2.0`). `$env:CHATKEEP_INSTALL` overrides the install directory (default `%USERPROFILE%\.chatkeep\bin`). The script adds that directory to the user PATH when it is missing, and prints a one-line `$env:Path` command for terminals that were already open. `chatkeep uninstall` removes that user PATH entry. `--purge` also deletes `%USERPROFILE%\.chatkeep`.
 
 <details>
 <summary><b>Published archives</b></summary>
