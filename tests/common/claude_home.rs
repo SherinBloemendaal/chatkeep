@@ -57,6 +57,7 @@ impl Home {
             processes: Arc::new(Processes(Vec::new())),
             cache: true,
             fresh: false,
+            session_account: None,
         };
         Self {
             _root: root,

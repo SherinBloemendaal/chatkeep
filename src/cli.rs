@@ -146,9 +146,13 @@ pub enum SyncAction {
     /// Show the sync profiles and their accounts. Alias: ls.
     #[command(alias = "ls")]
     Profiles,
-    /// Create or replace a sync profile: the accounts that share their chats.
+    /// Create or replace a sync profile: the accounts that share their chats. Without accounts,
+    /// pick them from a list.
     Set(SyncSetArgs),
-    /// Remove a sync profile. The chat lists stay as they are.
+    /// Add accounts to a sync profile. Without accounts, pick them from a list.
+    Add(SyncSetArgs),
+    /// Remove accounts from a sync profile, or the whole profile when none are named. The chat
+    /// lists stay as they are.
     Rm(SyncRmArgs),
     /// Keep syncing: act whenever a chat list changes, until stopped.
     Watch(SyncWatchArgs),
@@ -172,8 +176,9 @@ pub struct SyncSetArgs {
     /// The name of the profile, e.g. work.
     #[arg(value_hint = ValueHint::Other)]
     pub name: String,
-    /// The accounts in it: each an id or the start of one, or ACCOUNT/ORGANIZATION.
-    #[arg(required = true, num_args = 2.., value_hint = ValueHint::Other)]
+    /// The accounts: each a name, an e-mail address, an id or the start of one, or
+    /// ACCOUNT/ORGANIZATION. Without them, a terminal shows a list to pick from.
+    #[arg(value_hint = ValueHint::Other)]
     pub accounts: Vec<String>,
 }
 
@@ -181,9 +186,12 @@ pub struct SyncSetArgs {
 pub struct SyncRmArgs {
     #[command(flatten)]
     pub flags: WriteFlags,
-    /// The profile to remove.
+    /// The profile to remove, or to remove accounts from.
     #[arg(value_hint = ValueHint::Other)]
     pub name: String,
+    /// The accounts to take out of the profile. Without them, the whole profile goes.
+    #[arg(value_hint = ValueHint::Other)]
+    pub accounts: Vec<String>,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -239,6 +247,26 @@ pub enum AccountsAction {
     Ls,
     /// Make the chats one account lists show up for another account.
     Cp(AccountCpArgs),
+    /// Give an account a name to show and type instead of its id.
+    Name(AccountNameArgs),
+    /// Show which account the desktop app, this session, and the last login use.
+    Doctor,
+    /// Remove what .claude.json still caches for accounts that are no longer in use.
+    Prune(WriteFlags),
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct AccountNameArgs {
+    /// The account: its id or the start of it, its e-mail address, or its current name.
+    /// Without it, a terminal shows a list to pick from.
+    #[arg(value_hint = ValueHint::Other)]
+    pub account: Option<String>,
+    /// The name, e.g. work. Without it, a terminal asks for it.
+    #[arg(value_hint = ValueHint::Other)]
+    pub name: Option<String>,
+    /// Remove the account's name instead.
+    #[arg(long, conflicts_with = "name")]
+    pub clear: bool,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -2143,6 +2171,8 @@ pub fn common_of(command: &Command) -> CommonArgs {
             ClaudeCommand::Accounts(args) => match &args.action {
                 AccountsAction::Ls => flags_only(false, false),
                 AccountsAction::Cp(args) => flags_only(args.flags.dry_run, args.flags.yes),
+                AccountsAction::Prune(flags) => flags_only(flags.dry_run, flags.yes),
+                AccountsAction::Name(_) | AccountsAction::Doctor => flags_only(false, false),
             },
             ClaudeCommand::Cache(args) => match &args.action {
                 ClaudeCacheAction::Clear(flags) => flags_only(flags.dry_run, flags.yes),
@@ -2150,7 +2180,9 @@ pub fn common_of(command: &Command) -> CommonArgs {
             },
             ClaudeCommand::Sync(args) => match &args.action {
                 None => flags_only(args.flags.dry_run, args.flags.yes),
-                Some(SyncAction::Set(args)) => flags_only(args.flags.dry_run, args.flags.yes),
+                Some(SyncAction::Set(args) | SyncAction::Add(args)) => {
+                    flags_only(args.flags.dry_run, args.flags.yes)
+                }
                 Some(SyncAction::Rm(args)) => flags_only(args.flags.dry_run, args.flags.yes),
                 Some(_) => flags_only(false, false),
             },
@@ -2420,6 +2452,13 @@ pub fn command_args(command: &Command) -> Vec<String> {
                     args.from.clone().unwrap_or_default(),
                     args.to.clone().unwrap_or_default(),
                 ],
+                AccountsAction::Name(args) => vec![
+                    "name".into(),
+                    args.account.clone().unwrap_or_default(),
+                    args.name.clone().unwrap_or_default(),
+                ],
+                AccountsAction::Doctor => vec!["doctor".into()],
+                AccountsAction::Prune(_) => vec!["prune".into()],
             },
             ClaudeCommand::Cache(args) => vec![match &args.action {
                 ClaudeCacheAction::Clear(_) => "clear".into(),
@@ -2432,7 +2471,14 @@ pub fn command_args(command: &Command) -> Vec<String> {
                     .chain(std::iter::once(args.name.clone()))
                     .chain(args.accounts.clone())
                     .collect(),
-                Some(SyncAction::Rm(args)) => vec!["rm".into(), args.name.clone()],
+                Some(SyncAction::Add(args)) => std::iter::once("add".to_string())
+                    .chain(std::iter::once(args.name.clone()))
+                    .chain(args.accounts.clone())
+                    .collect(),
+                Some(SyncAction::Rm(args)) => std::iter::once("rm".to_string())
+                    .chain(std::iter::once(args.name.clone()))
+                    .chain(args.accounts.clone())
+                    .collect(),
                 Some(SyncAction::Watch(args)) => {
                     vec!["watch".into(), args.profile.clone().unwrap_or_default()]
                 }

@@ -6,6 +6,8 @@ pub mod archive;
 pub mod autosync;
 pub mod config;
 pub mod desktop;
+pub mod doctor;
+pub mod identity;
 pub mod index;
 pub mod live;
 pub mod ops;
@@ -134,6 +136,8 @@ pub struct Runtime {
     pub cache: bool,
     /// Read every transcript again instead of trusting the cache (`--fresh`).
     pub fresh: bool,
+    /// The account of the Claude Code session chatkeep runs in, when it runs in one.
+    pub session_account: Option<identity::Seen>,
 }
 
 impl Runtime {
@@ -151,6 +155,7 @@ impl Runtime {
             )
             .is_some(),
             fresh: false,
+            session_account: identity::from_env(|key| std::env::var(key).ok()),
         })
     }
 

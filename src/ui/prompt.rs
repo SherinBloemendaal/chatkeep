@@ -132,6 +132,29 @@ pub fn multi_select(
     Ok(picked)
 }
 
+/// A checkbox list whose rows start checked where `checked` says so. The picked rows are not
+/// echoed afterwards: the caller reports what changed.
+pub fn multi_select_checked(
+    prompt: &str,
+    items: &[String],
+    checked: &[bool],
+    interactive: bool,
+) -> anyhow::Result<Vec<usize>> {
+    if !interactive {
+        return Err(no_terminal(prompt));
+    }
+    let _guard = PromptGuard::new();
+    let picked = with_prompt_theme(|theme| {
+        dialoguer::MultiSelect::with_theme(theme)
+            .with_prompt(prompt)
+            .items(items)
+            .defaults(checked)
+            .report(false)
+            .interact()
+    })?;
+    Ok(picked)
+}
+
 pub fn input(prompt: &str, interactive: bool) -> anyhow::Result<String> {
     if !interactive {
         return Err(no_terminal(prompt));

@@ -161,18 +161,22 @@ Without `--tool`, a command that names a project runs for every tool that has it
 
 <br>
 
-| Command                                         | What it does                                                       |
-| ----------------------------------------------- | ------------------------------------------------------------------ |
-| `chatkeep claude accounts ls`                   | The accounts of the desktop app and how many chats each one lists. |
-| `chatkeep claude accounts cp [FROM] [TO]`       | List the chats of one account under another, once.                 |
-| `chatkeep claude sync [PROFILE]`                | Bring the accounts of a sync profile in step, in both directions.  |
-| `chatkeep claude sync set NAME ACCOUNT ACCOUNT` | Create or replace a sync profile.                                  |
-| `chatkeep claude sync profiles`                 | Show the sync profiles and whether the background sync runs.       |
-| `chatkeep claude sync rm NAME`                  | Remove a sync profile.                                             |
-| `chatkeep claude sync watch [PROFILE]`          | Keep syncing whenever a chat list changes, until stopped.          |
-| `chatkeep claude sync auto on\|off\|status`     | Run that watcher in the background from login on.                  |
-| `chatkeep claude sync log`                      | Show what the syncs changed: which chat, how, for which account.   |
-| `chatkeep claude cache clear\|stats`            | Clear or inspect the index of the transcripts.                     |
+| Command                                          | What it does                                                           |
+| ------------------------------------------------ | ---------------------------------------------------------------------- |
+| `chatkeep claude accounts ls`                    | The accounts of the desktop app and how many chats each one lists.     |
+| `chatkeep claude accounts cp [FROM] [TO]`        | List the chats of one account under another, once.                     |
+| `chatkeep claude accounts name [ACCOUNT] [NAME]` | Give an account a name to show and type instead of its id.             |
+| `chatkeep claude accounts doctor`                | Show which account the desktop app, a session, and the last login use. |
+| `chatkeep claude accounts prune`                 | Remove what `.claude.json` caches for accounts no longer in use.       |
+| `chatkeep claude sync [PROFILE]`                 | Bring the accounts of a sync profile in step, in both directions.      |
+| `chatkeep claude sync set NAME [ACCOUNT...]`     | Create or replace a sync profile; without accounts, pick them.         |
+| `chatkeep claude sync add NAME [ACCOUNT...]`     | Add accounts to a sync profile; without accounts, pick them.           |
+| `chatkeep claude sync profiles`                  | Show the sync profiles and whether the background sync runs.           |
+| `chatkeep claude sync rm NAME [ACCOUNT...]`      | Remove accounts from a sync profile, or the whole profile.             |
+| `chatkeep claude sync watch [PROFILE]`           | Keep syncing whenever a chat list changes, until stopped.              |
+| `chatkeep claude sync auto on\|off\|status`      | Run that watcher in the background from login on.                      |
+| `chatkeep claude sync log`                       | Show what the syncs changed: which chat, how, for which account.       |
+| `chatkeep claude cache clear\|stats`             | Clear or inspect the index of the transcripts.                         |
 
 See [Claude Code](#-claude-code) for what each of these does.
 
@@ -330,19 +334,53 @@ chatkeep claude accounts ls          # every account, and how many of its chats 
 chatkeep claude accounts cp OLD      # list the chats of OLD under the account signed in now
 ```
 
-`OLD` is an account id or the start of one. `accounts cp` copies only the list entries, never a transcript: both accounts then open the same chat. It skips chats without a transcript on this machine and chats the account already lists, never overwrites an entry, and leaves out what belongs to the old account (its remote session and its connectors). Restart the desktop app to see them.
+`OLD` is an account: its name, its e-mail address, or its id or the start of it. Leave it out and chatkeep asks which account to copy from. `accounts cp` copies only the list entries, never a transcript: both accounts then open the same chat. It skips chats without a transcript on this machine and chats the account already lists, never overwrites an entry, and leaves out what belongs to the old account (its remote session and its connectors). Restart the desktop app to see them.
+
+### Naming accounts
+
+The desktop app knows an account only by its id. chatkeep shows a readable label instead wherever it can: the name you gave the account, or else its e-mail address. It learns an address where Claude Code writes one down on this machine (the last login in `.claude.json`, and the session chatkeep runs in when you start it from Claude Code) and keeps it after that login is gone. The app itself keeps no address on disk, so an account chatkeep never saw signed in shows the start of its id until you name it:
+
+```bash
+chatkeep claude accounts name             # pick an account from a list, then type its name
+chatkeep claude accounts name 1a2b work   # or name it in one go
+chatkeep claude accounts name work --clear
+```
+
+Every command that takes an account accepts its name or e-mail address too, in any case. Names are in `~/.chatkeep/accounts.json`.
+
+### Which account is in use
+
+```bash
+chatkeep claude accounts doctor   # the account of the desktop app, this session, and the last login
+chatkeep claude accounts prune    # remove the caches .claude.json keeps for other accounts
+```
+
+The desktop app passes the account it is signed in with to every Code session it starts. The `oauthAccount` in `.claude.json` is only the last account any Claude Code logged in with, the copy the desktop app runs included, so after switching accounts it can name another account without anything being wrong. `accounts doctor` shows all three side by side, says when a session still runs with the account from before a switch (start a new session), and tells you whether a `claude` command is on your `PATH`.
+
+Claude Code also keeps a few caches per account or organization in `.claude.json` and never drops those of an account it no longer uses. `accounts prune` removes them for every account other than the desktop app's, the current session's, and the last login's. It shows what goes and asks first (`-n` previews, `-y` skips the question), reads the file again right before writing so nothing Claude Code saved in between is lost, and keeps a copy in `~/.chatkeep/backups/claude-json-*.json`. A running Claude Code may write the entries of its own account back, which is harmless. Keys chatkeep does not know are never touched.
 
 ### Syncing accounts
 
 `accounts cp` is a one-off. A sync profile keeps accounts the same from then on:
 
 ```bash
-chatkeep claude sync set work ACCOUNT_A ACCOUNT_B   # these accounts share their chats
-chatkeep claude sync                                # sync every profile now
-chatkeep claude sync auto on                        # and keep doing it in the background
+chatkeep claude sync set work        # check the accounts that share their chats in a list
+chatkeep claude sync                 # sync every profile now
+chatkeep claude sync auto on         # and keep doing it in the background
 ```
 
 A profile is a named group of accounts, so work accounts sync with work accounts and private ones with private ones. An account belongs to one profile at most.
+
+Change a profile one account at a time:
+
+```bash
+chatkeep claude sync add work                  # pick accounts to add from a list
+chatkeep claude sync add work me@new.test      # or name them
+chatkeep claude sync rm work old               # take an account out
+chatkeep claude sync rm work                   # in a terminal: asks whether some accounts or the whole profile go
+```
+
+Without accounts, `sync set` and `sync add` show a checkbox list: space checks an account, enter saves. Each row shows who the account is, how many chats it lists, when one was last active, and that chat's title. `sync set` starts with the profile's current accounts checked, so unchecking one removes it; accounts that sync in another profile are left out of the list. Outside a terminal, name the accounts. `sync rm NAME` with `-y` or outside a terminal removes the whole profile, as before. A profile keeps at least two accounts, and an account that stays keeps what the profile remembers about its deletions.
 
 Inside a profile the sync goes both ways:
 

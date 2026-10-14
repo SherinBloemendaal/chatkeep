@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use super::accounts::{self, ACCOUNT_BOUND, Listing};
+use super::identity;
 use super::ops::in_journal;
 use super::{Runtime, live, store};
 use crate::engine::Report;
@@ -25,7 +26,9 @@ use crate::engine::fsops::{exists, write_atomic};
 use crate::ui;
 
 /// Words `chatkeep claude sync` takes as actions, so no profile may carry them.
-const RESERVED: [&str; 7] = ["profiles", "ls", "list", "set", "rm", "watch", "auto"];
+const RESERVED: [&str; 9] = [
+    "profiles", "ls", "list", "set", "add", "rm", "watch", "auto", "log",
+];
 
 pub fn config_path(home: &Path) -> PathBuf {
     home.join("sync.json")
@@ -226,29 +229,112 @@ fn valid_name(name: &str) -> Result<()> {
     Ok(())
 }
 
-/// Create or replace the profile `name` with the accounts `specs` name. Each spec is
-/// `ACCOUNT` or `ACCOUNT/ORGANIZATION`, an id or the start of one.
-pub fn set_profile(rt: &Runtime, name: &str, specs: &[String]) -> Result<Profile> {
-    valid_name(name)?;
+/// The `account/organization` labels `specs` name, in order and without repeats. Each spec is
+/// `ACCOUNT` or `ACCOUNT/ORGANIZATION`: an id or the start of one, or a name or e-mail address
+/// chatkeep knows for the account.
+pub fn labels_for(rt: &Runtime, specs: &[String]) -> Result<Vec<String>> {
     let listings = accounts::listings(&rt.layout)?;
+    let book = identity::book(rt)?;
     let mut labels: Vec<String> = Vec::new();
     for spec in specs {
-        let found = accounts::matching(&listings, spec)?;
-        let [listing] = found.as_slice() else {
-            bail!(
-                "account {spec} has several organizations; pass one of: {}",
-                found
-                    .iter()
-                    .map(|listing| listing.label())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            );
-        };
-        let label = listing.label();
+        let label = accounts::single(&listings, &book, spec)?.label();
         if !labels.contains(&label) {
             labels.push(label);
         }
     }
+    Ok(labels)
+}
+
+/// Create or replace the profile `name` with the accounts `specs` name.
+pub fn set_profile(rt: &Runtime, name: &str, specs: &[String]) -> Result<Profile> {
+    valid_name(name)?;
+    let labels = labels_for(rt, specs)?;
+    store_profile(rt, name, labels)
+}
+
+/// Add the accounts `specs` name to the existing profile `name`.
+pub fn add_to_profile(rt: &Runtime, name: &str, specs: &[String]) -> Result<Profile> {
+    let current = existing(rt, name)?;
+    let mut labels = current.accounts.clone();
+    let mut added = 0usize;
+    for label in labels_for(rt, specs)? {
+        if !labels.contains(&label) {
+            labels.push(label);
+            added += 1;
+        }
+    }
+    if added == 0 {
+        bail!("profile {name} already has every account named");
+    }
+    store_profile(rt, name, labels)
+}
+
+/// Take the accounts `specs` name out of the profile `name`. An account may be named that no
+/// longer exists on this machine, by its label as `sync profiles` shows it.
+pub fn remove_from_profile(rt: &Runtime, name: &str, specs: &[String]) -> Result<Profile> {
+    let current = existing(rt, name)?;
+    let listings = accounts::listings(&rt.layout)?;
+    let book = identity::book(rt)?;
+    let mut gone: Vec<String> = Vec::new();
+    for spec in specs {
+        let in_profile: Vec<&String> = current
+            .accounts
+            .iter()
+            .filter(|label| label.starts_with(&book.expand(spec)))
+            .collect();
+        let label = match in_profile.as_slice() {
+            [only] => (*only).clone(),
+            [] => {
+                let label = accounts::single(&listings, &book, spec)?.label();
+                if !current.accounts.contains(&label) {
+                    bail!("profile {name} has no account {spec}");
+                }
+                label
+            }
+            _ => bail!(
+                "{spec} matches several accounts of profile {name}: {}",
+                in_profile
+                    .iter()
+                    .map(|label| label.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        };
+        if !gone.contains(&label) {
+            gone.push(label);
+        }
+    }
+    let labels: Vec<String> = current
+        .accounts
+        .iter()
+        .filter(|label| !gone.contains(label))
+        .cloned()
+        .collect();
+    if labels.len() < 2 {
+        return Err(ui::hinted(
+            format!("profile {name} would keep fewer than two accounts"),
+            format!("Remove the whole profile instead: chatkeep claude sync rm {name}"),
+        ));
+    }
+    store_profile(rt, name, labels)
+}
+
+fn existing(rt: &Runtime, name: &str) -> Result<Profile> {
+    load(&rt.layout.chatkeep_home)?
+        .profiles
+        .get(name)
+        .cloned()
+        .ok_or_else(|| {
+            ui::hinted(
+                format!("no sync profile named {name}"),
+                format!("Create it with: chatkeep claude sync set {name}"),
+            )
+        })
+}
+
+/// Save `labels` as the accounts of profile `name`. What the profile remembers about an
+/// account that stays is kept; an account that joins starts without a history.
+fn store_profile(rt: &Runtime, name: &str, labels: Vec<String>) -> Result<Profile> {
     if labels.len() < 2 {
         bail!("a sync profile needs at least two different accounts");
     }

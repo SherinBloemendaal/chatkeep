@@ -11,8 +11,10 @@ use serde_json::Value;
 use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::desktop::{self, DesktopSession};
+use super::identity::{self, Book};
 use super::ops::{ensure_dir, in_journal};
 use super::store;
 use super::{Layout, Runtime, live};
@@ -38,6 +40,14 @@ pub struct Listing {
 impl Listing {
     pub fn label(&self) -> String {
         format!("{}/{}", self.account, self.organization)
+    }
+
+    /// The entry the app wrote last: the chat that was active most recently.
+    fn latest(&self) -> Option<&DesktopSession> {
+        self.sessions
+            .iter()
+            .filter(|session| session.modified.is_some())
+            .max_by_key(|session| session.modified)
     }
 }
 
@@ -103,12 +113,20 @@ fn on_disk(listing: &Listing, known: &HashSet<String>) -> usize {
 pub fn render(rt: &Runtime, theme: Theme) -> Result<String> {
     let listings = listings(&rt.layout)?;
     let known = known_sessions(rt)?;
-    Ok(render_at(theme, &listings, &known, ui::table_width()))
+    let book = identity::book(rt)?;
+    Ok(render_at(
+        theme,
+        &listings,
+        &book,
+        &known,
+        ui::table_width(),
+    ))
 }
 
 pub fn render_at(
     theme: Theme,
     listings: &[Listing],
+    book: &Book,
     known: &HashSet<String>,
     width: Option<usize>,
 ) -> String {
@@ -126,13 +144,14 @@ pub fn render_at(
         theme,
         &[
             ("account", Align::Left),
+            ("name", Align::Left),
             ("organization", Align::Left),
             ("chats", Align::Right),
             ("on disk", Align::Right),
             ("state", Align::Left),
         ],
     )
-    .optional(&[1])
+    .optional(&[2])
     .at(width);
     for listing in listings {
         let state = if listing.current {
@@ -142,19 +161,140 @@ pub fn render_at(
         };
         sheet.row(vec![
             theme.cell(&listing.account, Some(Color::Magenta), &[]),
+            theme.cell(
+                book.name(&listing.account)
+                    .or_else(|| book.email(&listing.account))
+                    .unwrap_or_default(),
+                None,
+                &[],
+            ),
             theme.cell(&listing.organization, None, &[Attribute::Dim]),
             theme.count_cell(listing.sessions.len(), None),
             theme.count_cell(on_disk(listing, known), Some(Color::Cyan)),
             state,
         ]);
     }
-    format!(
+    let unnamed = listings.iter().any(|listing| {
+        book.name(&listing.account).is_none() && book.email(&listing.account).is_none()
+    });
+    let mut out = format!(
         "{heading}\n{sheet}\n{}\n",
         ui::hint_line(
             theme,
             "on disk: chats whose transcript is still on this machine, the ones accounts cp can copy"
         )
-    )
+    );
+    if unnamed {
+        out.push_str(&ui::hint_line(
+            theme,
+            "Name an account to use that name instead of its id: chatkeep claude accounts name",
+        ));
+        out.push('\n');
+    }
+    out
+}
+
+/// One picker row per listing, each on one terminal row of `total` columns: who the account
+/// is, its organization, how many chats it lists, when one was last active, and the title of
+/// that chat, so an account is recognisable without its id.
+pub fn picker_rows(book: &Book, listings: &[&Listing], total: usize) -> Vec<String> {
+    let now = SystemTime::now();
+    let labels: Vec<String> = listings
+        .iter()
+        .map(|listing| {
+            let mut label = book.label(&listing.account);
+            if listing.current {
+                label.push_str(" (signed in)");
+            }
+            label
+        })
+        .collect();
+    let several_orgs = |account: &str| {
+        listings
+            .iter()
+            .filter(|listing| listing.account == account)
+            .count()
+            > 1
+    };
+    let width = labels.iter().map(String::len).max().unwrap_or(0).min(40);
+    listings
+        .iter()
+        .zip(&labels)
+        .map(|(listing, label)| {
+            let mut lead = format!("{label:<width$}  ");
+            if several_orgs(&listing.account) {
+                lead.push_str(&format!("org {}  ", identity::short(&listing.organization)));
+            }
+            lead.push_str(&format!(
+                "{:>9}",
+                ui::plural(listing.sessions.len(), "chat", "chats")
+            ));
+            let latest = listing.latest();
+            if let Some(at) = latest.and_then(|session| session.modified) {
+                lead.push_str(&format!("  {:>8}", ago(at, now)));
+            }
+            let title = latest
+                .and_then(|session| session.title.as_deref())
+                .unwrap_or_default();
+            fit_row(&lead, title, total)
+        })
+        .collect()
+}
+
+fn ago(at: SystemTime, now: SystemTime) -> String {
+    let millis = |time: SystemTime| {
+        time.duration_since(UNIX_EPOCH)
+            .map(|elapsed| i64::try_from(elapsed.as_millis()).unwrap_or(i64::MAX))
+            .unwrap_or(0)
+    };
+    ui::ago(millis(at), millis(now))
+}
+
+/// `lead` and as much of `title` as fits `total` columns, counted in bytes the way the picker
+/// counts them, cut on a character boundary.
+fn fit_row(lead: &str, title: &str, total: usize) -> String {
+    let budget = total.saturating_sub(6);
+    if title.is_empty() || lead.len() + 2 >= budget {
+        return lead
+            .chars()
+            .scan(0, |used, ch| {
+                *used += ch.len_utf8();
+                (*used <= budget.max(1)).then_some(ch)
+            })
+            .collect::<String>()
+            .trim_end()
+            .to_string();
+    }
+    let room = budget - lead.len() - 2;
+    let title: String = title.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut cut = String::new();
+    for ch in title.chars() {
+        if cut.len() + ch.len_utf8() > room {
+            cut.truncate(cut.trim_end().len());
+            if cut.len() + 3 <= room {
+                cut.push_str("...");
+            }
+            break;
+        }
+        cut.push(ch);
+    }
+    format!("{lead}  {cut}")
+}
+
+/// The one listing `spec` names, which may be a name or e-mail address the book knows.
+pub(super) fn single<'a>(listings: &'a [Listing], book: &Book, spec: &str) -> Result<&'a Listing> {
+    let found = matching(listings, &book.expand(spec))?;
+    let [listing] = found.as_slice() else {
+        bail!(
+            "account {spec} has several organizations; pass one of: {}",
+            found
+                .iter()
+                .map(|listing| listing.label())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    };
+    Ok(listing)
 }
 
 /// The listings `spec` names: `ACCOUNT` or `ACCOUNT/ORGANIZATION`, each an id or the start of
@@ -203,8 +343,11 @@ pub struct CopyPlan {
 
 pub fn plan_copy(rt: &Runtime, from: &str, to: Option<&str>) -> Result<(CopyPlan, Report)> {
     let listings = listings(&rt.layout)?;
+    let book = identity::book(rt)?;
+    let from = book.expand(from);
+    let from = from.as_str();
     let to_spec = match to {
-        Some(to) => to.to_string(),
+        Some(to) => book.expand(to),
         None => current(&rt.layout).ok_or_else(|| {
             ui::hinted(
                 "chatkeep cannot tell which account the desktop app is signed in with",
