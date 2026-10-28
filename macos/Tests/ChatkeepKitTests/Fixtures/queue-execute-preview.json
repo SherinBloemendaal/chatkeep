@@ -1,1 +1,40 @@
-{"ok":true,"command":"queue execute","dry_run":true,"results":[{"tool":null,"data":{"title":"Queue execute","warnings":[],"skipped":[],"applied":["b970b2f4 combine --move --profile resolved 5254ff40f20eb9f28d0493f27aa9307b e3ca3ba788c27c6259e41499d7f0bcd0 -y"],"rewritten_keys":[],"entries":[{"id":"b970b2f4","argv":["combine","--move","--profile","resolved","5254ff40f20eb9f28d0493f27aa9307b","e3ca3ba788c27c6259e41499d7f0bcd0","-y"],"command":"combine --move --profile resolved 5254ff40f20eb9f28d0493f27aa9307b e3ca3ba788c27c6259e41499d7f0bcd0 -y","plan":"ok","plan_warnings":[],"plan_error":null,"status":"planned","error":null,"results":[]}]}}]}
+{
+  "ok": true,
+  "command": "queue execute",
+  "dry_run": true,
+  "results": [
+    {
+      "tool": null,
+      "data": {
+        "title": "Queue execute",
+        "warnings": [],
+        "skipped": [],
+        "applied": [
+          "b970b2f4 combine --move --profile resolved 5254ff40f20eb9f28d0493f27aa9307b e3ca3ba788c27c6259e41499d7f0bcd0 -y"
+        ],
+        "rewritten_keys": [],
+        "entries": [
+          {
+            "id": "b970b2f4",
+            "argv": [
+              "combine",
+              "--move",
+              "--profile",
+              "resolved",
+              "5254ff40f20eb9f28d0493f27aa9307b",
+              "e3ca3ba788c27c6259e41499d7f0bcd0",
+              "-y"
+            ],
+            "command": "combine --move --profile resolved 5254ff40f20eb9f28d0493f27aa9307b e3ca3ba788c27c6259e41499d7f0bcd0 -y",
+            "plan": "ok",
+            "plan_warnings": [],
+            "plan_error": null,
+            "status": "planned",
+            "error": null,
+            "results": []
+          }
+        ]
+      }
+    }
+  ]
+}

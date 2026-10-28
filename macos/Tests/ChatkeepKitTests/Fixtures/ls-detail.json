@@ -40,7 +40,12 @@
                 "archived": null,
                 "subagent": false,
                 "model": "claude-opus-5-5",
-                "tokens": {"input": 304, "output": 173503, "cache_write": 269684, "cache_read": 28345607},
+                "tokens": {
+                  "input": 304,
+                  "output": 173503,
+                  "cache_write": 269684,
+                  "cache_read": 28345607
+                },
                 "subagents": 8,
                 "size_bytes": 10830749,
                 "cwd": "/Users/me/projects/resolved/api",
@@ -87,7 +92,7 @@
                 "archived": false,
                 "subagent": false,
                 "model": "grok-4.7",
-                "tokens": {"input": 0, "output": 0, "context": 156861},
+                "tokens": { "input": 0, "output": 0, "context": 156861 },
                 "cost_cents": 0,
                 "requests": 0
               }

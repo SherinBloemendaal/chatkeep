@@ -1,1 +1,16 @@
-{"ok":true,"command":"claude sync auto status","dry_run":false,"results":[{"tool":"claude","data":{"state":"stopped","installed":true,"running":false,"log_path":"/Users/me/.chatkeep/sync-log.jsonl"}}]}
+{
+  "ok": true,
+  "command": "claude sync auto status",
+  "dry_run": false,
+  "results": [
+    {
+      "tool": "claude",
+      "data": {
+        "state": "stopped",
+        "installed": true,
+        "running": false,
+        "log_path": "/Users/me/.chatkeep/sync-log.jsonl"
+      }
+    }
+  ]
+}

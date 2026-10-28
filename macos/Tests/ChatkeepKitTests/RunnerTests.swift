@@ -98,7 +98,8 @@ struct RunnerTests {
     }
 
     @Test func cancellingAReadStopsTheTool() async throws {
-        let tool = try FakeTool("sleep 30")
+        // The child keeps the pipes open after the tool itself is stopped.
+        let tool = try FakeTool("sleep 30 &\nwait")
         defer { tool.remove() }
         let runner = tool.runner
 

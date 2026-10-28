@@ -1,6 +1,8 @@
 {
   "title": "Move",
-  "warnings": ["skipped 9602d48d5e4595972fd32e1bb8f58cf0: destination missing /tmp/new"],
+  "warnings": [
+    "skipped 9602d48d5e4595972fd32e1bb8f58cf0: destination missing /tmp/new"
+  ],
   "skipped": ["9602d48d5e4595972fd32e1bb8f58cf0"],
   "applied": [],
   "rewritten_keys": []

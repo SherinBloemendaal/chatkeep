@@ -40,18 +40,18 @@ text exactly as before.
   "command": "ls",
   "dry_run": false,
   "results": [
-    {"tool": "claude", "data": {}},
-    {"tool": "cursor", "data": {}}
+    { "tool": "claude", "data": {} },
+    { "tool": "cursor", "data": {} }
   ]
 }
 ```
 
-| Field     | Type    | Meaning                                                                   |
-| --------- | ------- | ------------------------------------------------------------------------- |
-| `ok`      | bool    | Always `true`.                                                            |
-| `command` | string  | The command's words, see [Command names](#command-names).                 |
-| `dry_run` | bool    | `true` when `-n` was given.                                               |
-| `results` | array   | One entry per tool the command ran for, in the order they ran.           |
+| Field     | Type   | Meaning                                                        |
+| --------- | ------ | -------------------------------------------------------------- |
+| `ok`      | bool   | Always `true`.                                                 |
+| `command` | string | The command's words, see [Command names](#command-names).      |
+| `dry_run` | bool   | `true` when `-n` was given.                                    |
+| `results` | array  | One entry per tool the command ran for, in the order they ran. |
 
 Each result is `{"tool": "cursor" | "claude" | null, "data": {...}}`.
 
@@ -78,15 +78,15 @@ command, `--version`) give one result with `null`.
 }
 ```
 
-| Field              | Type             | Meaning                                                                                  |
-| ------------------ | ---------------- | ---------------------------------------------------------------------------------------- |
-| `ok`               | bool             | Always `false`.                                                                          |
-| `command`          | string or null   | The command's words; `null` when the arguments could not be parsed.                     |
-| `error.kind`       | string           | One of the [error kinds](#error-kinds).                                                  |
-| `error.message`    | string           | What went wrong, in one line, for people.                                                |
-| `error.hint`       | string or null   | What to do about it, for people.                                                         |
-| `error.queue_args` | array or null    | Only with `tool_running`: the arguments `queue add` would store, see below.              |
-| `results`          | array            | The parts that finished before the error, in the result shape above. Usually empty.     |
+| Field              | Type           | Meaning                                                                             |
+| ------------------ | -------------- | ----------------------------------------------------------------------------------- |
+| `ok`               | bool           | Always `false`.                                                                     |
+| `command`          | string or null | The command's words; `null` when the arguments could not be parsed.                 |
+| `error.kind`       | string         | One of the [error kinds](#error-kinds).                                             |
+| `error.message`    | string         | What went wrong, in one line, for people.                                           |
+| `error.hint`       | string or null | What to do about it, for people.                                                    |
+| `error.queue_args` | array or null  | Only with `tool_running`: the arguments `queue add` would store, see below.         |
+| `results`          | array          | The parts that finished before the error, in the result shape above. Usually empty. |
 
 `results` is not empty in two cases: a command that ran for both tools and failed in its Cursor
 part after its Claude Code part was done (the Claude Code result is there), and `queue execute`,
@@ -94,23 +94,23 @@ whose result describes every entry also when the run stopped early.
 
 ### Exit codes
 
-| Code | When                                                              |
-| ---- | ----------------------------------------------------------------- |
-| `0`  | `ok` is `true`.                                                   |
-| `1`  | Any error except the two below.                                   |
-| `2`  | `usage`: the arguments could not be parsed.                       |
-| `75` | `tool_running`: Cursor or Claude Code still uses the data.        |
+| Code | When                                                       |
+| ---- | ---------------------------------------------------------- |
+| `0`  | `ok` is `true`.                                            |
+| `1`  | Any error except the two below.                            |
+| `2`  | `usage`: the arguments could not be parsed.                |
+| `75` | `tool_running`: Cursor or Claude Code still uses the data. |
 
 ### Error kinds
 
-| Kind                  | Meaning                                                                                                                                                       |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `usage`               | clap could not parse the arguments: an unknown command or flag, a bad value. `command` is `null`. Also for a `queue add` whose stored command does not parse. |
+| Kind                  | Meaning                                                                                                                                                                                |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `usage`               | clap could not parse the arguments: an unknown command or flag, a bad value. `command` is `null`. Also for a `queue add` whose stored command does not parse.                          |
 | `missing_argument`    | The command needs something a terminal would have asked for: an argument, a pick from a list, or `--profile` when several Cursor installations hold the project. The message names it. |
-| `needs_confirmation`  | A write command got neither `-n` nor `-y`.                                                                                                                    |
-| `tool_running`        | Cursor is open, or a Claude Code session or the Claude desktop app uses the chats. Nothing was changed by the part that hit it.                             |
-| `unsupported_in_json` | The command has no JSON output: `update`, `uninstall`, `github`, `help` (and `-h`), `claude sync watch`, `__refresh-index`.                                  |
-| `failed`              | Anything else: no project matches, an archive is broken, a refused combination of flags. Read `message`.                                                     |
+| `needs_confirmation`  | A write command got neither `-n` nor `-y`.                                                                                                                                             |
+| `tool_running`        | Cursor is open, or a Claude Code session or the Claude desktop app uses the chats. Nothing was changed by the part that hit it.                                                        |
+| `unsupported_in_json` | The command has no JSON output: `update`, `uninstall`, `github`, `help` (and `-h`), `claude sync watch`, `__refresh-index`.                                                            |
+| `failed`              | Anything else: no project matches, an archive is broken, a refused combination of flags. Read `message`.                                                                               |
 
 **Queueing a blocked command.** With `tool_running`, `queue_args` is non-null when the command
 can be queued: run `chatkeep --json queue add -- <queue_args...>` and run
@@ -136,14 +136,14 @@ already queued.
 
 ## Values
 
-| Kind of value | Format                                                                                                                         |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Time          | ISO 8601 in UTC, whole seconds: `"2026-10-27T23:21:38Z"`. `null` when unknown. Swift: `JSONDecoder.DateDecodingStrategy.iso8601`. |
-| Path          | Absolute path string as the file system spells it.                                                                             |
-| Size          | Integer bytes; the field name ends in `_bytes` (or is `bytes`).                                                                |
-| Duration      | Integer milliseconds; the field name ends in `_ms`.                                                                            |
-| Tokens, counts| Integers.                                                                                                                      |
-| `name`        | A display label, as the text tables show it: a project path with the home folder as `~`. Use `path` for the real path.         |
+| Kind of value  | Format                                                                                                                            |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Time           | ISO 8601 in UTC, whole seconds: `"2026-10-27T23:21:38Z"`. `null` when unknown. Swift: `JSONDecoder.DateDecodingStrategy.iso8601`. |
+| Path           | Absolute path string as the file system spells it.                                                                                |
+| Size           | Integer bytes; the field name ends in `_bytes` (or is `bytes`).                                                                   |
+| Duration       | Integer milliseconds; the field name ends in `_ms`.                                                                               |
+| Tokens, counts | Integers.                                                                                                                         |
+| `name`         | A display label, as the text tables show it: a project path with the home folder as `~`. Use `path` for the real path.            |
 
 A field documented as "or null" is always present, with `null` when it has no value. Fields are
 never left out, except that rows of one tool have a few fields the other tool's rows do not
@@ -157,10 +157,10 @@ never left out, except that rows of one tool have a few fields the other tool's 
 
 One result per tool. `data`:
 
-| Field              | Type            | Meaning                                                                                                 |
-| ------------------ | --------------- | ------------------------------------------------------------------------------------------------------- |
-| `index_as_of`      | time or null    | Cursor: when the index last read the rows, when they came from the index. Always `null` for Claude Code. |
-| `index_refreshing` | bool            | Cursor: a background refresh of the index runs now. Always `false` for Claude Code.                     |
+| Field              | Type                         | Meaning                                                                                                   |
+| ------------------ | ---------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `index_as_of`      | time or null                 | Cursor: when the index last read the rows, when they came from the index. Always `null` for Claude Code.  |
+| `index_refreshing` | bool                         | Cursor: a background refresh of the index runs now. Always `false` for Claude Code.                       |
 | `projects`         | array of [Project](#project) | Missing destinations first, then the largest. Sort by `last_active` in the app for a "recent first" view. |
 
 ### `ls ID`
@@ -169,61 +169,61 @@ One result per tool. `data`:
 
 One result per tool that has the project. `data`:
 
-| Field              | Type    | Meaning                                                                  |
-| ------------------ | ------- | ------------------------------------------------------------------------ |
-| `index_as_of`      | time or null | As for `ls`.                                                        |
-| `index_refreshing` | bool    | As for `ls`.                                                             |
-| `details`          | array   | One entry per Cursor installation that has the project (Claude Code: one). |
+| Field              | Type         | Meaning                                                                    |
+| ------------------ | ------------ | -------------------------------------------------------------------------- |
+| `index_as_of`      | time or null | As for `ls`.                                                               |
+| `index_refreshing` | bool         | As for `ls`.                                                               |
+| `details`          | array        | One entry per Cursor installation that has the project (Claude Code: one). |
 
 Each entry of `details`:
 
-| Field         | Type                   | Meaning                                                  |
-| ------------- | ---------------------- | -------------------------------------------------------- |
-| `project`     | [Project](#project)    | The project row.                                         |
-| `last_active` | time or null           | The same as `project.last_active`.                       |
-| `chats`       | array of [Chat](#chat) | Every chat, newest first.                                |
+| Field         | Type                   | Meaning                            |
+| ------------- | ---------------------- | ---------------------------------- |
+| `project`     | [Project](#project)    | The project row.                   |
+| `last_active` | time or null           | The same as `project.last_active`. |
+| `chats`       | array of [Chat](#chat) | Every chat, newest first.          |
 
 ### Project
 
-| Field                 | Type           | Cursor                                                                        | Claude Code                                       |
-| --------------------- | -------------- | ----------------------------------------------------------------------------- | ------------------------------------------------- |
-| `tool`                | string         | `"cursor"`                                                                    | `"claude"`                                        |
-| `id`                  | string         | Workspace hash (32 hex characters), or the id of an unsaved or empty window   | Folder name in `~/.claude/projects`               |
-| `kind`                | string         | `folder`, `code-workspace`, `unsaved`, `empty-window`, or `remote`            | `project`                                         |
-| `name`                | string         | Display label                                                                 | Display label                                     |
-| `path`                | string or null | The folder or `.code-workspace` file                                          | The folder, when chatkeep could tell              |
-| `uri`                 | string or null | The URI Cursor stores                                                         | `null`                                            |
-| `storage_dir`         | string         | `workspaceStorage/<id>` folder                                                | The project folder in `~/.claude/projects`        |
-| `install`             | string or null | Cursor installation name, e.g. `default`                                      | `null`                                            |
-| `profile`             | string or null | VS Code profile, `default` for the default one                                | `null`                                            |
-| `profile_label`       | string or null | `install`, or `install/profile` for another VS Code profile                    | `null`                                            |
-| `chats`               | int            | Top-level chats                                                               | Sessions                                          |
-| `subagents`           | int            | Subagent chats                                                                | Subagent transcripts                              |
-| `archived`            | int or null    | Archived chats (top-level and subagent)                                       | `null`                                            |
-| `size_bytes`          | int            | Size of `storage_dir`                                                         | Size of `storage_dir`                             |
+| Field                 | Type           | Cursor                                                                                                                         | Claude Code                                                       |
+| --------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| `tool`                | string         | `"cursor"`                                                                                                                     | `"claude"`                                                        |
+| `id`                  | string         | Workspace hash (32 hex characters), or the id of an unsaved or empty window                                                    | Folder name in `~/.claude/projects`                               |
+| `kind`                | string         | `folder`, `code-workspace`, `unsaved`, `empty-window`, or `remote`                                                             | `project`                                                         |
+| `name`                | string         | Display label                                                                                                                  | Display label                                                     |
+| `path`                | string or null | The folder or `.code-workspace` file                                                                                           | The folder, when chatkeep could tell                              |
+| `uri`                 | string or null | The URI Cursor stores                                                                                                          | `null`                                                            |
+| `storage_dir`         | string         | `workspaceStorage/<id>` folder                                                                                                 | The project folder in `~/.claude/projects`                        |
+| `install`             | string or null | Cursor installation name, e.g. `default`                                                                                       | `null`                                                            |
+| `profile`             | string or null | VS Code profile, `default` for the default one                                                                                 | `null`                                                            |
+| `profile_label`       | string or null | `install`, or `install/profile` for another VS Code profile                                                                    | `null`                                                            |
+| `chats`               | int            | Top-level chats                                                                                                                | Sessions                                                          |
+| `subagents`           | int            | Subagent chats                                                                                                                 | Subagent transcripts                                              |
+| `archived`            | int or null    | Archived chats (top-level and subagent)                                                                                        | `null`                                                            |
+| `size_bytes`          | int            | Size of `storage_dir`                                                                                                          | Size of `storage_dir`                                             |
 | `last_active`         | time or null   | Newest `updated_at` of its chats, subagent chats included (`created_at` for a chat with no `updated_at`); `null` without chats | Newest change of its session transcripts; `null` without sessions |
-| `destination`         | string         | `present`, `missing`, or `none` (a kind with no folder of its own)            | `present`, `missing`, or `none` (no known path)   |
-| `destination_missing` | bool           | `destination == "missing"`                                                    | `destination == "missing"`                        |
-| `memory_files`        | int            | (not present)                                                                 | Files in the project's `memory/` folder           |
+| `destination`         | string         | `present`, `missing`, or `none` (a kind with no folder of its own)                                                             | `present`, `missing`, or `none` (no known path)                   |
+| `destination_missing` | bool           | `destination == "missing"`                                                                                                     | `destination == "missing"`                                        |
+| `memory_files`        | int            | (not present)                                                                                                                  | Files in the project's `memory/` folder                           |
 
 ### Chat
 
-| Field         | Type            | Cursor                                                 | Claude Code                                                          |
-| ------------- | --------------- | ------------------------------------------------------ | -------------------------------------------------------------------- |
-| `id`          | string          | Chat (composer) id                                     | Session id                                                           |
-| `title`       | string or null  | Chat title                                             | Custom title                                                         |
-| `created_at`  | time or null    | When the chat was created                              | `null` (not recorded)                                                |
-| `updated_at`  | time or null    | Last update of the chat                                | Last change of the transcript file                                   |
-| `archived`    | bool or null    | Archived in Cursor                                     | `null`                                                               |
-| `subagent`    | bool            | A chat an agent started                                | `false`                                                              |
-| `model`       | string or null  | Model of the chat, when Cursor recorded it             | The model that gave most answers                                     |
-| `tokens`      | object or null  | `{"input", "output", "context"}`, `null` when Cursor has no data for the chat | `{"input", "output", "cache_write", "cache_read"}` |
-| `cost_cents`  | int or null     | Usage cost Cursor recorded                             | (not present)                                                        |
-| `requests`    | int or null     | Requests Cursor recorded                               | (not present)                                                        |
-| `subagents`   | int             | (not present)                                          | Subagent transcripts of the session                                  |
-| `size_bytes`  | int             | (not present)                                          | Transcript plus its session folder                                   |
-| `cwd`         | string or null  | (not present)                                          | The folder the session started in                                    |
-| `transcript`  | string          | (not present)                                          | The `.jsonl` transcript                                              |
+| Field        | Type           | Cursor                                                                        | Claude Code                                        |
+| ------------ | -------------- | ----------------------------------------------------------------------------- | -------------------------------------------------- |
+| `id`         | string         | Chat (composer) id                                                            | Session id                                         |
+| `title`      | string or null | Chat title                                                                    | Custom title                                       |
+| `created_at` | time or null   | When the chat was created                                                     | `null` (not recorded)                              |
+| `updated_at` | time or null   | Last update of the chat                                                       | Last change of the transcript file                 |
+| `archived`   | bool or null   | Archived in Cursor                                                            | `null`                                             |
+| `subagent`   | bool           | A chat an agent started                                                       | `false`                                            |
+| `model`      | string or null | Model of the chat, when Cursor recorded it                                    | The model that gave most answers                   |
+| `tokens`     | object or null | `{"input", "output", "context"}`, `null` when Cursor has no data for the chat | `{"input", "output", "cache_write", "cache_read"}` |
+| `cost_cents` | int or null    | Usage cost Cursor recorded                                                    | (not present)                                      |
+| `requests`   | int or null    | Requests Cursor recorded                                                      | (not present)                                      |
+| `subagents`  | int            | (not present)                                                                 | Subagent transcripts of the session                |
+| `size_bytes` | int            | (not present)                                                                 | Transcript plus its session folder                 |
+| `cwd`        | string or null | (not present)                                                                 | The folder the session started in                  |
+| `transcript` | string         | (not present)                                                                 | The `.jsonl` transcript                            |
 
 Cursor `tokens.input` and `tokens.output` only count tokens stored inline in the chat; newer
 chats store them per message, so they are often `0`. `tokens.context` is the context window in
@@ -274,7 +274,12 @@ Example (`chatkeep ls --json ~/projects/resolved/api`, one chat kept per tool):
                 "archived": null,
                 "subagent": false,
                 "model": "claude-opus-5-5",
-                "tokens": {"input": 304, "output": 173503, "cache_write": 269684, "cache_read": 28345607},
+                "tokens": {
+                  "input": 304,
+                  "output": 173503,
+                  "cache_write": 269684,
+                  "cache_read": 28345607
+                },
                 "subagents": 8,
                 "size_bytes": 10830749,
                 "cwd": "/Users/me/projects/resolved/api",
@@ -321,7 +326,7 @@ Example (`chatkeep ls --json ~/projects/resolved/api`, one chat kept per tool):
                 "archived": false,
                 "subagent": false,
                 "model": "grok-4.7",
-                "tokens": {"input": 0, "output": 0, "context": 156861},
+                "tokens": { "input": 0, "output": 0, "context": 156861 },
                 "cost_cents": 0,
                 "requests": 0
               }
@@ -347,44 +352,44 @@ One result per tool.
 
 **Cursor `data`:**
 
-| Field              | Type          | Meaning                                                                                       |
-| ------------------ | ------------- | --------------------------------------------------------------------------------------------- |
-| `index_as_of`      | time or null  | As for `ls`.                                                                                  |
-| `index_refreshing` | bool          | As for `ls`.                                                                                  |
-| `installations`    | int           | Cursor installations counted.                                                                 |
-| `user_profiles`    | int           | Extra VS Code profiles in them.                                                               |
-| `profiles`         | array         | `{"name", "root", "workspaces", "chats", "subagents", "global_db_bytes", "user_profile"}` per installation, then per VS Code profile. `root` is the installation's user data folder; `global_db_bytes` is `null` for a VS Code profile (it shares the installation's database). |
-| `workspaces`       | int           | Workspaces.                                                                                   |
-| `by_kind`          | array         | `{"kind", "workspaces"}`, most first.                                                         |
-| `chats`            | int           | Top-level chats.                                                                              |
-| `subagents`        | int           | Subagent chats.                                                                               |
-| `archived`         | int           | Archived chats and subagent chats.                                                            |
-| `usage`            | object        | `conversations`, `cost_cents`, `requests`, `cost_chats`, `context_tokens`, `context_chats`, `input_tokens`, `output_tokens`, `token_chats`: totals, and how many conversations carried each. |
-| `models`           | array         | `{"model", "chats"}`, most first.                                                             |
-| `per_month`        | array         | `{"month": "YYYY-MM", "chats"}` by creation month, oldest first.                              |
-| `busiest`          | array         | `{"name", "kind", "chats"}` per workspace, most chats first. `kind` may be `null`.           |
-| `global_db_bytes`  | int or null   | Size of every `globalStorage/state.vscdb` together.                                           |
-| `workspace_dbs`    | array         | `{"name", "kind", "bytes"}` per workspace database, largest first.                            |
+| Field              | Type         | Meaning                                                                                                                                                                                                                                                                         |
+| ------------------ | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `index_as_of`      | time or null | As for `ls`.                                                                                                                                                                                                                                                                    |
+| `index_refreshing` | bool         | As for `ls`.                                                                                                                                                                                                                                                                    |
+| `installations`    | int          | Cursor installations counted.                                                                                                                                                                                                                                                   |
+| `user_profiles`    | int          | Extra VS Code profiles in them.                                                                                                                                                                                                                                                 |
+| `profiles`         | array        | `{"name", "root", "workspaces", "chats", "subagents", "global_db_bytes", "user_profile"}` per installation, then per VS Code profile. `root` is the installation's user data folder; `global_db_bytes` is `null` for a VS Code profile (it shares the installation's database). |
+| `workspaces`       | int          | Workspaces.                                                                                                                                                                                                                                                                     |
+| `by_kind`          | array        | `{"kind", "workspaces"}`, most first.                                                                                                                                                                                                                                           |
+| `chats`            | int          | Top-level chats.                                                                                                                                                                                                                                                                |
+| `subagents`        | int          | Subagent chats.                                                                                                                                                                                                                                                                 |
+| `archived`         | int          | Archived chats and subagent chats.                                                                                                                                                                                                                                              |
+| `usage`            | object       | `conversations`, `cost_cents`, `requests`, `cost_chats`, `context_tokens`, `context_chats`, `input_tokens`, `output_tokens`, `token_chats`: totals, and how many conversations carried each.                                                                                    |
+| `models`           | array        | `{"model", "chats"}`, most first.                                                                                                                                                                                                                                               |
+| `per_month`        | array        | `{"month": "YYYY-MM", "chats"}` by creation month, oldest first.                                                                                                                                                                                                                |
+| `busiest`          | array        | `{"name", "kind", "chats"}` per workspace, most chats first. `kind` may be `null`.                                                                                                                                                                                              |
+| `global_db_bytes`  | int or null  | Size of every `globalStorage/state.vscdb` together.                                                                                                                                                                                                                             |
+| `workspace_dbs`    | array        | `{"name", "kind", "bytes"}` per workspace database, largest first.                                                                                                                                                                                                              |
 
 `name` in `busiest` and `workspace_dbs` is a display label; with several installations it ends in
 ` (installation)`.
 
 **Claude Code `data`:**
 
-| Field             | Type   | Meaning                                                                          |
-| ----------------- | ------ | -------------------------------------------------------------------------------- |
-| `projects`        | int    | Projects.                                                                        |
-| `missing`         | int    | Projects whose folder is gone.                                                   |
-| `sessions`        | int    | Sessions.                                                                        |
-| `subagents`       | int    | Subagent transcripts.                                                            |
-| `memory_files`    | int    | Memory files.                                                                    |
-| `size_bytes`      | int    | Size of every project folder.                                                    |
-| `tokens`          | object | `{"input", "output", "cache_write", "cache_read"}` of the sessions.              |
-| `subagent_tokens` | object | The same for the subagent transcripts.                                           |
+| Field             | Type   | Meaning                                                                            |
+| ----------------- | ------ | ---------------------------------------------------------------------------------- |
+| `projects`        | int    | Projects.                                                                          |
+| `missing`         | int    | Projects whose folder is gone.                                                     |
+| `sessions`        | int    | Sessions.                                                                          |
+| `subagents`       | int    | Subagent transcripts.                                                              |
+| `memory_files`    | int    | Memory files.                                                                      |
+| `size_bytes`      | int    | Size of every project folder.                                                      |
+| `tokens`          | object | `{"input", "output", "cache_write", "cache_read"}` of the sessions.                |
+| `subagent_tokens` | object | The same for the subagent transcripts.                                             |
 | `models`          | array  | `{"model", "sessions"}`: sessions by the model that gave most answers, most first. |
-| `per_month`       | array  | `{"month": "YYYY-MM", "sessions"}`, oldest first.                                |
-| `busiest`         | array  | `{"name", "sessions"}` per project, most first.                                  |
-| `largest`         | array  | `{"name", "size_bytes"}` per project, largest first.                             |
+| `per_month`       | array  | `{"month": "YYYY-MM", "sessions"}`, oldest first.                                  |
+| `busiest`         | array  | `{"name", "sessions"}` per project, most first.                                    |
+| `largest`         | array  | `{"name", "size_bytes"}` per project, largest first.                               |
 
 Example (arrays cut to one entry):
 
@@ -397,14 +402,33 @@ Example (arrays cut to one entry):
     {
       "tool": "claude",
       "data": {
-        "projects": 40, "missing": 18, "sessions": 82, "subagents": 769, "memory_files": 32,
+        "projects": 40,
+        "missing": 18,
+        "sessions": 82,
+        "subagents": 769,
+        "memory_files": 32,
         "size_bytes": 1847276300,
-        "tokens": {"input": 277412, "output": 21661122, "cache_write": 114940596, "cache_read": 10853438900},
-        "subagent_tokens": {"input": 224672, "output": 9228788, "cache_write": 776797006, "cache_read": 18135669495},
-        "models": [{"model": "claude-opus-5-5", "sessions": 71}],
-        "per_month": [{"month": "2026-09", "sessions": 5}],
-        "busiest": [{"name": "~/projects/resolved/api", "sessions": 43}],
-        "largest": [{"name": "~/Library/Application Support/Claude/scratch-workspaces/46b3b10a/scratch-2026-10-07-8b8195", "size_bytes": 659715219}]
+        "tokens": {
+          "input": 277412,
+          "output": 21661122,
+          "cache_write": 114940596,
+          "cache_read": 10853438900
+        },
+        "subagent_tokens": {
+          "input": 224672,
+          "output": 9228788,
+          "cache_write": 776797006,
+          "cache_read": 18135669495
+        },
+        "models": [{ "model": "claude-opus-5-5", "sessions": 71 }],
+        "per_month": [{ "month": "2026-09", "sessions": 5 }],
+        "busiest": [{ "name": "~/projects/resolved/api", "sessions": 43 }],
+        "largest": [
+          {
+            "name": "~/Library/Application Support/Claude/scratch-workspaces/46b3b10a/scratch-2026-10-07-8b8195",
+            "size_bytes": 659715219
+          }
+        ]
       }
     },
     {
@@ -415,23 +439,49 @@ Example (arrays cut to one entry):
         "installations": 8,
         "user_profiles": 0,
         "profiles": [
-          {"name": "default", "root": "/Users/me/Library/Application Support/Cursor", "workspaces": 73, "chats": 1144, "subagents": 1049, "global_db_bytes": 34357874688, "user_profile": false}
+          {
+            "name": "default",
+            "root": "/Users/me/Library/Application Support/Cursor",
+            "workspaces": 73,
+            "chats": 1144,
+            "subagents": 1049,
+            "global_db_bytes": 34357874688,
+            "user_profile": false
+          }
         ],
         "workspaces": 184,
-        "by_kind": [{"kind": "folder", "workspaces": 111}],
+        "by_kind": [{ "kind": "folder", "workspaces": 111 }],
         "chats": 3620,
         "subagents": 12363,
         "archived": 2233,
         "usage": {
-          "conversations": 15983, "cost_cents": 61466, "requests": 9476, "cost_chats": 213,
-          "context_tokens": 1620491356, "context_chats": 13623,
-          "input_tokens": 21433261, "output_tokens": 1197591, "token_chats": 60
+          "conversations": 15983,
+          "cost_cents": 61466,
+          "requests": 9476,
+          "cost_chats": 213,
+          "context_tokens": 1620491356,
+          "context_chats": 13623,
+          "input_tokens": 21433261,
+          "output_tokens": 1197591,
+          "token_chats": 60
         },
-        "models": [{"model": "grok-4.6", "chats": 781}],
-        "per_month": [{"month": "2025-02", "chats": 25}],
-        "busiest": [{"name": "~/projects/verbleif/verbleif.code-workspace (default)", "kind": "code-workspace", "chats": 1092}],
+        "models": [{ "model": "grok-4.6", "chats": 781 }],
+        "per_month": [{ "month": "2025-02", "chats": 25 }],
+        "busiest": [
+          {
+            "name": "~/projects/verbleif/verbleif.code-workspace (default)",
+            "kind": "code-workspace",
+            "chats": 1092
+          }
+        ],
         "global_db_bytes": 158142390272,
-        "workspace_dbs": [{"name": "~/projects/verbleif/frontend (default)", "kind": "folder", "bytes": 19136512}]
+        "workspace_dbs": [
+          {
+            "name": "~/projects/verbleif/frontend (default)",
+            "kind": "folder",
+            "bytes": 19136512
+          }
+        ]
       }
     }
   ]
@@ -444,18 +494,40 @@ Example (arrays cut to one entry):
 
 One result, `tool: null`. `data`:
 
-| Field        | Type   | Meaning                                                                 |
-| ------------ | ------ | ----------------------------------------------------------------------- |
-| `path`       | string | The log file.                                                           |
-| `entries`    | array  | Oldest first. `{"at", "command", "args", "outcome", "duration_ms"}`.   |
-| `unreadable` | int    | Lines that are not JSON; they are left out.                             |
+| Field        | Type   | Meaning                                                              |
+| ------------ | ------ | -------------------------------------------------------------------- |
+| `path`       | string | The log file.                                                        |
+| `entries`    | array  | Oldest first. `{"at", "command", "args", "outcome", "duration_ms"}`. |
+| `unreadable` | int    | Lines that are not JSON; they are left out.                          |
 
 Per entry: `at` time or null; `command` string or null (`mv`, `claude accounts`, ...); `args`
 array of strings with empty ones left out; `outcome` `"ok"` or `"error"` (or null);
 `duration_ms` int or null.
 
 ```json
-{"ok":true,"command":"history","dry_run":false,"results":[{"tool":null,"data":{"path":"/Users/me/.chatkeep/history.jsonl","entries":[{"at":"2026-09-24T10:04:28Z","command":"mv","args":["/Users/me/old/app","/Users/me/new/app"],"outcome":"ok","duration_ms":162}],"unreadable":0}}]}
+{
+  "ok": true,
+  "command": "history",
+  "dry_run": false,
+  "results": [
+    {
+      "tool": null,
+      "data": {
+        "path": "/Users/me/.chatkeep/history.jsonl",
+        "entries": [
+          {
+            "at": "2026-09-24T10:04:28Z",
+            "command": "mv",
+            "args": ["/Users/me/old/app", "/Users/me/new/app"],
+            "outcome": "ok",
+            "duration_ms": 162
+          }
+        ],
+        "unreadable": 0
+      }
+    }
+  ]
+}
 ```
 
 ### `queue list`
@@ -466,24 +538,60 @@ One result, `tool: null`. `data` is `{"entries": [Entry, ...]}` in queue order.
 
 **Entry:**
 
-| Field          | Type            | Meaning                                                                                       |
-| -------------- | --------------- | --------------------------------------------------------------------------------------------- |
-| `id`           | string          | Entry id, 8 hex characters.                                                                    |
-| `position`     | int or null     | Run order among the pending entries, from 1; `null` when not pending.                         |
-| `status`       | string          | `pending`, `running`, `failed`, or `skipped`.                                                 |
-| `interrupted`  | bool            | `failed` because a `queue execute` stopped while it ran.                                      |
-| `argv`         | array of string | The stored command, without `chatkeep`.                                                       |
-| `command`      | string          | `argv` quoted for a shell.                                                                    |
+| Field          | Type            | Meaning                                                                                                                                              |
+| -------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`           | string          | Entry id, 8 hex characters.                                                                                                                          |
+| `position`     | int or null     | Run order among the pending entries, from 1; `null` when not pending.                                                                                |
+| `status`       | string          | `pending`, `running`, `failed`, or `skipped`.                                                                                                        |
+| `interrupted`  | bool            | `failed` because a `queue execute` stopped while it ran.                                                                                             |
+| `argv`         | array of string | The stored command, without `chatkeep`.                                                                                                              |
+| `command`      | string          | `argv` quoted for a shell.                                                                                                                           |
 | `tool`         | string or null  | `cursor` or `claude` when the command names its tool (its namespace, `--tool`, `--profile`, `--unsaved`); `null` when chatkeep decides when it runs. |
-| `cwd`          | string          | The folder it was queued in; relative paths in `argv` resolve against it.                     |
-| `profile`      | string or null  | `--profile` of the command.                                                                   |
-| `created_at`   | time or null    | When it was queued.                                                                           |
-| `tool_version` | string          | chatkeep version that queued it.                                                              |
-| `warnings`     | array of string | Warnings of its plan when it was queued.                                                      |
-| `last_error`   | string or null  | Why it failed or was skipped.                                                                 |
+| `cwd`          | string          | The folder it was queued in; relative paths in `argv` resolve against it.                                                                            |
+| `profile`      | string or null  | `--profile` of the command.                                                                                                                          |
+| `created_at`   | time or null    | When it was queued.                                                                                                                                  |
+| `tool_version` | string          | chatkeep version that queued it.                                                                                                                     |
+| `warnings`     | array of string | Warnings of its plan when it was queued.                                                                                                             |
+| `last_error`   | string or null  | Why it failed or was skipped.                                                                                                                        |
 
 ```json
-{"ok":true,"command":"queue list","dry_run":false,"results":[{"tool":null,"data":{"entries":[{"id":"de1cd8d8","position":null,"status":"failed","interrupted":false,"argv":["combine","--move","--profile","resolved","b42728393cad7ca6161e8ee23cf1cc08","7b86a000ce7c6377c39429a3bd7e2080","-y"],"command":"combine --move --profile resolved b42728393cad7ca6161e8ee23cf1cc08 7b86a000ce7c6377c39429a3bd7e2080 -y","tool":"cursor","cwd":"/Users/me/projects/chatkeep","profile":"resolved","created_at":"2026-10-01T10:27:20Z","tool_version":"1.1.0","warnings":[],"last_error":"collision: transcript already exists: /Users/me/.cursor/projects/x/agent-transcripts/24f3dae7\nAll changes were rolled back."}]}}]}
+{
+  "ok": true,
+  "command": "queue list",
+  "dry_run": false,
+  "results": [
+    {
+      "tool": null,
+      "data": {
+        "entries": [
+          {
+            "id": "de1cd8d8",
+            "position": null,
+            "status": "failed",
+            "interrupted": false,
+            "argv": [
+              "combine",
+              "--move",
+              "--profile",
+              "resolved",
+              "b42728393cad7ca6161e8ee23cf1cc08",
+              "7b86a000ce7c6377c39429a3bd7e2080",
+              "-y"
+            ],
+            "command": "combine --move --profile resolved b42728393cad7ca6161e8ee23cf1cc08 7b86a000ce7c6377c39429a3bd7e2080 -y",
+            "tool": "cursor",
+            "cwd": "/Users/me/projects/chatkeep",
+            "profile": "resolved",
+            "created_at": "2026-10-01T10:27:20Z",
+            "tool_version": "1.1.0",
+            "warnings": [],
+            "last_error": "collision: transcript already exists: /Users/me/.cursor/projects/x/agent-transcripts/24f3dae7\nAll changes were rolled back."
+          }
+        ]
+      }
+    }
+  ]
+}
 ```
 
 ### `queue add`
@@ -496,7 +604,33 @@ command would not wait for a tool ("can run directly") or its dry run fails, and
 when the stored command does not parse.
 
 ```json
-{"ok":true,"command":"queue add","dry_run":false,"results":[{"tool":null,"data":{"entry":{"id":"3f9c2a1b","position":1,"status":"pending","interrupted":false,"argv":["mv","-y","/Users/me/old/app","/Users/me/new/app"],"command":"mv -y /Users/me/old/app /Users/me/new/app","tool":null,"cwd":"/Users/me","profile":null,"created_at":"2026-10-28T09:30:00Z","tool_version":"1.2.0","warnings":[],"last_error":null}}}]}
+{
+  "ok": true,
+  "command": "queue add",
+  "dry_run": false,
+  "results": [
+    {
+      "tool": null,
+      "data": {
+        "entry": {
+          "id": "3f9c2a1b",
+          "position": 1,
+          "status": "pending",
+          "interrupted": false,
+          "argv": ["mv", "-y", "/Users/me/old/app", "/Users/me/new/app"],
+          "command": "mv -y /Users/me/old/app /Users/me/new/app",
+          "tool": null,
+          "cwd": "/Users/me",
+          "profile": null,
+          "created_at": "2026-10-28T09:30:00Z",
+          "tool_version": "1.2.0",
+          "warnings": [],
+          "last_error": null
+        }
+      }
+    }
+  ]
+}
 ```
 
 ### `cursor cache stats`
@@ -505,17 +639,17 @@ when the stored command does not parse.
 
 One result, `tool: "cursor"`. `data`:
 
-| Field          | Type            | Meaning                                                                       |
-| -------------- | --------------- | ----------------------------------------------------------------------------- |
-| `path`         | string          | `index.db`.                                                                   |
-| `exists`       | bool            | Whether it exists.                                                            |
-| `size_bytes`   | int             | Its size with `-wal` and `-shm`.                                              |
-| `schema`       | int or null     | Its schema version.                                                           |
-| `refreshed_at` | time or null    | Last refresh.                                                                 |
-| `spawned_at`   | time or null    | Last background refresh start.                                                |
-| `refresh`      | object or null  | The lock holder: `{"pid", "started_at", "alive"}`; `null` when unlocked.      |
-| `last_log`     | string or null  | Last line of the background refresh log.                                      |
-| `installs`     | array           | Per installation, see below.                                                  |
+| Field          | Type           | Meaning                                                                  |
+| -------------- | -------------- | ------------------------------------------------------------------------ |
+| `path`         | string         | `index.db`.                                                              |
+| `exists`       | bool           | Whether it exists.                                                       |
+| `size_bytes`   | int            | Its size with `-wal` and `-shm`.                                         |
+| `schema`       | int or null    | Its schema version.                                                      |
+| `refreshed_at` | time or null   | Last refresh.                                                            |
+| `spawned_at`   | time or null   | Last background refresh start.                                           |
+| `refresh`      | object or null | The lock holder: `{"pid", "started_at", "alive"}`; `null` when unlocked. |
+| `last_log`     | string or null | Last line of the background refresh log.                                 |
+| `installs`     | array          | Per installation, see below.                                             |
 
 Per install: `name`; `root` (user data folder); `found` (false for rows of an installation that
 is no longer on this machine); `scanned_at`, `dirty_at` (time or null); `scan_duration_ms` (int
@@ -523,7 +657,40 @@ or null); `workspaces`, `chats`, `subagents` (ints); `stale` (`{"sources", "reas
 when unknown).
 
 ```json
-{"ok":true,"command":"cursor cache stats","dry_run":false,"results":[{"tool":"cursor","data":{"path":"/Users/me/.chatkeep/index.db","exists":true,"size_bytes":7409664,"schema":1,"refreshed_at":"2026-10-27T23:21:38Z","spawned_at":"2026-10-27T23:21:38Z","refresh":null,"last_log":"2026-10-28 00:21:38 pid 47627 refresh done in 105ms","installs":[{"name":"default","root":"/Users/me/Library/Application Support/Cursor","found":true,"scanned_at":"2026-10-27T23:21:38Z","scan_duration_ms":77,"dirty_at":null,"workspaces":73,"chats":1144,"subagents":1049,"stale":{"sources":1,"reasons":["global db changed"]}}]}}]}
+{
+  "ok": true,
+  "command": "cursor cache stats",
+  "dry_run": false,
+  "results": [
+    {
+      "tool": "cursor",
+      "data": {
+        "path": "/Users/me/.chatkeep/index.db",
+        "exists": true,
+        "size_bytes": 7409664,
+        "schema": 1,
+        "refreshed_at": "2026-10-27T23:21:38Z",
+        "spawned_at": "2026-10-27T23:21:38Z",
+        "refresh": null,
+        "last_log": "2026-10-28 00:21:38 pid 47627 refresh done in 105ms",
+        "installs": [
+          {
+            "name": "default",
+            "root": "/Users/me/Library/Application Support/Cursor",
+            "found": true,
+            "scanned_at": "2026-10-27T23:21:38Z",
+            "scan_duration_ms": 77,
+            "dirty_at": null,
+            "workspaces": 73,
+            "chats": 1144,
+            "subagents": 1049,
+            "stale": { "sources": 1, "reasons": ["global db changed"] }
+          }
+        ]
+      }
+    }
+  ]
+}
 ```
 
 ### `cursor cache scan`
@@ -539,14 +706,59 @@ whether the installation was ever scanned, `stale_sources` is int or null, and `
 what changed (empty when up to date).
 
 ```json
-{"ok":true,"command":"cursor cache scan","dry_run":true,"results":[{"tool":"cursor","data":{"installs":[{"name":"default","root":"/Users/me/Library/Application Support/Cursor","scanned":true,"stale_sources":1,"reasons":["global db changed"]}]}}]}
+{
+  "ok": true,
+  "command": "cursor cache scan",
+  "dry_run": true,
+  "results": [
+    {
+      "tool": "cursor",
+      "data": {
+        "installs": [
+          {
+            "name": "default",
+            "root": "/Users/me/Library/Application Support/Cursor",
+            "scanned": true,
+            "stale_sources": 1,
+            "reasons": ["global db changed"]
+          }
+        ]
+      }
+    }
+  ]
+}
 ```
 
 Without `-n`: `data` is
 `{"full", "duration_ms", "path", "installs": [{"name", "workspaces", "chats", "subagents", "changed_sources", "chats_read", "duration_ms"}]}`.
 
 ```json
-{"ok":true,"command":"cursor cache scan","dry_run":false,"results":[{"tool":"cursor","data":{"full":false,"duration_ms":86,"path":"/Users/me/.chatkeep/index.db","installs":[{"name":"default","workspaces":73,"chats":1144,"subagents":1049,"changed_sources":1,"chats_read":2,"duration_ms":78}]}}]}
+{
+  "ok": true,
+  "command": "cursor cache scan",
+  "dry_run": false,
+  "results": [
+    {
+      "tool": "cursor",
+      "data": {
+        "full": false,
+        "duration_ms": 86,
+        "path": "/Users/me/.chatkeep/index.db",
+        "installs": [
+          {
+            "name": "default",
+            "workspaces": 73,
+            "chats": 1144,
+            "subagents": 1049,
+            "changed_sources": 1,
+            "chats_read": 2,
+            "duration_ms": 78
+          }
+        ]
+      }
+    }
+  ]
+}
 ```
 
 ### `claude cache stats`
@@ -558,7 +770,25 @@ One result, `tool: "claude"`. `data`: `enabled` (false with `CHATKEEP_NO_INDEX`)
 `null` when the index is off or not built yet.
 
 ```json
-{"ok":true,"command":"claude cache stats","dry_run":false,"results":[{"tool":"claude","data":{"enabled":true,"exists":true,"path":"/Users/me/.chatkeep/claude-index.db","size_bytes":602112,"transcripts":851,"refreshed_at":"2026-10-27T23:22:04Z","schema":1}}]}
+{
+  "ok": true,
+  "command": "claude cache stats",
+  "dry_run": false,
+  "results": [
+    {
+      "tool": "claude",
+      "data": {
+        "enabled": true,
+        "exists": true,
+        "path": "/Users/me/.chatkeep/claude-index.db",
+        "size_bytes": 602112,
+        "transcripts": 851,
+        "refreshed_at": "2026-10-27T23:22:04Z",
+        "schema": 1
+      }
+    }
+  ]
+}
 ```
 
 ### `claude accounts ls`
@@ -568,21 +798,46 @@ One result, `tool: "claude"`. `data`: `enabled` (false with `CHATKEEP_NO_INDEX`)
 One result, `tool: "claude"`. `data` is `{"accounts": [...]}`, one row per organization of each
 desktop app account:
 
-| Field          | Type           | Meaning                                                                    |
-| -------------- | -------------- | -------------------------------------------------------------------------- |
-| `account`      | string         | Account id.                                                                |
+| Field          | Type           | Meaning                                                                             |
+| -------------- | -------------- | ----------------------------------------------------------------------------------- |
+| `account`      | string         | Account id.                                                                         |
 | `label`        | string         | How chatkeep shows it: its name, else its e-mail address, else the start of its id. |
-| `name`         | string or null | The name given with `claude accounts name`.                                |
-| `email`        | string or null | Its e-mail address, when a login showed it.                                |
-| `organization` | string         | Organization id.                                                           |
-| `member`       | string         | `account/organization`, the value sync profiles store and accept.          |
-| `chats`        | int            | Chats the app lists for it.                                                |
-| `on_disk`      | int            | Of those, chats whose transcript is on this machine.                       |
-| `signed_in`    | bool           | The app is signed in with this account.                                    |
-| `dir`          | string         | The folder the app keeps the list in.                                      |
+| `name`         | string or null | The name given with `claude accounts name`.                                         |
+| `email`        | string or null | Its e-mail address, when a login showed it.                                         |
+| `organization` | string         | Organization id.                                                                    |
+| `member`       | string         | `account/organization`, the value sync profiles store and accept.                   |
+| `chats`        | int            | Chats the app lists for it.                                                         |
+| `on_disk`      | int            | Of those, chats whose transcript is on this machine.                                |
+| `signed_in`    | bool           | The app is signed in with this account.                                             |
+| `dir`          | string         | The folder the app keeps the list in.                                               |
 
 ```json
-{"ok":true,"command":"claude accounts ls","dry_run":false,"results":[{"tool":"claude","data":{"accounts":[{"account":"310c27f1-df40-42ae-b1c7-e12574811802","label":"310c27f1","name":null,"email":null,"organization":"d68212da-94ca-4311-9743-1c72b0f9362b","member":"310c27f1-df40-42ae-b1c7-e12574811802/d68212da-94ca-4311-9743-1c72b0f9362b","chats":79,"on_disk":79,"signed_in":false,"dir":"/Users/me/Library/Application Support/Claude/claude-code-sessions/310c27f1-df40-42ae-b1c7-e12574811802/d68212da-94ca-4311-9743-1c72b0f9362b"}]}}]}
+{
+  "ok": true,
+  "command": "claude accounts ls",
+  "dry_run": false,
+  "results": [
+    {
+      "tool": "claude",
+      "data": {
+        "accounts": [
+          {
+            "account": "310c27f1-df40-42ae-b1c7-e12574811802",
+            "label": "310c27f1",
+            "name": null,
+            "email": null,
+            "organization": "d68212da-94ca-4311-9743-1c72b0f9362b",
+            "member": "310c27f1-df40-42ae-b1c7-e12574811802/d68212da-94ca-4311-9743-1c72b0f9362b",
+            "chats": 79,
+            "on_disk": 79,
+            "signed_in": false,
+            "dir": "/Users/me/Library/Application Support/Claude/claude-code-sessions/310c27f1-df40-42ae-b1c7-e12574811802/d68212da-94ca-4311-9743-1c72b0f9362b"
+          }
+        ]
+      }
+    }
+  ]
+}
 ```
 
 ### `claude accounts doctor`
@@ -591,18 +846,63 @@ desktop app account:
 
 One result, `tool: "claude"`. `data`:
 
-| Field            | Type            | Meaning                                                                                       |
-| ---------------- | --------------- | --------------------------------------------------------------------------------------------- |
-| `desktop_app`    | bool            | The desktop app keeps data on this machine.                                                   |
-| `desktop`        | object or null  | The account it is signed in with: `{"account", "label", "name", "email", "organizations"}`.  |
-| `session`        | object or null  | The account of the Claude Code session chatkeep runs in: `{"account", "label", "email", "organization", "organization_name"}`. |
-| `login`          | object or null  | The last login in `.claude.json`, same fields.                                                |
-| `claude_command` | string or null  | The `claude` command on `PATH`.                                                               |
-| `stale_caches`   | int             | Entries `claude accounts prune` would remove.                                                 |
-| `findings`       | array           | `{"level": "ok" | "warn" | "info" | "hint", "text"}`, what the text output concludes.        |
+| Field            | Type           | Meaning                                                                                                                        |
+| ---------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------ | ------ | ------------------------------------------------- |
+| `desktop_app`    | bool           | The desktop app keeps data on this machine.                                                                                    |
+| `desktop`        | object or null | The account it is signed in with: `{"account", "label", "name", "email", "organizations"}`.                                    |
+| `session`        | object or null | The account of the Claude Code session chatkeep runs in: `{"account", "label", "email", "organization", "organization_name"}`. |
+| `login`          | object or null | The last login in `.claude.json`, same fields.                                                                                 |
+| `claude_command` | string or null | The `claude` command on `PATH`.                                                                                                |
+| `stale_caches`   | int            | Entries `claude accounts prune` would remove.                                                                                  |
+| `findings`       | array          | `{"level": "ok"                                                                                                                | "warn" | "info" | "hint", "text"}`, what the text output concludes. |
 
 ```json
-{"ok":true,"command":"claude accounts doctor","dry_run":false,"results":[{"tool":"claude","data":{"desktop_app":true,"desktop":{"account":"447c80ba-de69-436c-8bb8-3d2ecdaa12e4","label":"me@example.com","name":null,"email":"me@example.com","organizations":["3ab1ac9b-9a6b-4b53-9ca1-4205d57ee19d"]},"session":{"account":"447c80ba-de69-436c-8bb8-3d2ecdaa12e4","label":"me@example.com","email":"me@example.com","organization":"c4c4271d-9b29-47cf-9f31-06e3ae5600b2","organization_name":null},"login":{"account":"447c80ba-de69-436c-8bb8-3d2ecdaa12e4","label":"me@example.com","email":"me@example.com","organization":"c4c4271d-9b29-47cf-9f31-06e3ae5600b2","organization_name":"Example Organization"},"claude_command":"/Users/me/.local/bin/claude","stale_caches":7,"findings":[{"level":"ok","text":"Desktop sessions use the account the desktop app is signed in with."},{"level":"hint","text":"Remove the cache entries of accounts not in use: chatkeep claude accounts prune (7 entries)"}]}}]}
+{
+  "ok": true,
+  "command": "claude accounts doctor",
+  "dry_run": false,
+  "results": [
+    {
+      "tool": "claude",
+      "data": {
+        "desktop_app": true,
+        "desktop": {
+          "account": "447c80ba-de69-436c-8bb8-3d2ecdaa12e4",
+          "label": "me@example.com",
+          "name": null,
+          "email": "me@example.com",
+          "organizations": ["3ab1ac9b-9a6b-4b53-9ca1-4205d57ee19d"]
+        },
+        "session": {
+          "account": "447c80ba-de69-436c-8bb8-3d2ecdaa12e4",
+          "label": "me@example.com",
+          "email": "me@example.com",
+          "organization": "c4c4271d-9b29-47cf-9f31-06e3ae5600b2",
+          "organization_name": null
+        },
+        "login": {
+          "account": "447c80ba-de69-436c-8bb8-3d2ecdaa12e4",
+          "label": "me@example.com",
+          "email": "me@example.com",
+          "organization": "c4c4271d-9b29-47cf-9f31-06e3ae5600b2",
+          "organization_name": "Example Organization"
+        },
+        "claude_command": "/Users/me/.local/bin/claude",
+        "stale_caches": 7,
+        "findings": [
+          {
+            "level": "ok",
+            "text": "Desktop sessions use the account the desktop app is signed in with."
+          },
+          {
+            "level": "hint",
+            "text": "Remove the cache entries of accounts not in use: chatkeep claude accounts prune (7 entries)"
+          }
+        ]
+      }
+    }
+  ]
+}
 ```
 
 ### `claude sync profiles`
@@ -617,7 +917,40 @@ One result, `tool: "claude"`. `data`:
 - `auto`: the [background sync status](#claude-sync-auto-status).
 
 ```json
-{"ok":true,"command":"claude sync profiles","dry_run":false,"results":[{"tool":"claude","data":{"profiles":[{"name":"main","accounts":[{"account":"310c27f1-df40-42ae-b1c7-e12574811802","label":"310c27f1","name":null,"email":null,"organization":"d68212da-94ca-4311-9743-1c72b0f9362b","member":"310c27f1-df40-42ae-b1c7-e12574811802/d68212da-94ca-4311-9743-1c72b0f9362b","signed_in":false}]}],"auto":{"state":"stopped","installed":true,"running":false,"log_path":"/Users/me/.chatkeep/sync-log.jsonl"}}}]}
+{
+  "ok": true,
+  "command": "claude sync profiles",
+  "dry_run": false,
+  "results": [
+    {
+      "tool": "claude",
+      "data": {
+        "profiles": [
+          {
+            "name": "main",
+            "accounts": [
+              {
+                "account": "310c27f1-df40-42ae-b1c7-e12574811802",
+                "label": "310c27f1",
+                "name": null,
+                "email": null,
+                "organization": "d68212da-94ca-4311-9743-1c72b0f9362b",
+                "member": "310c27f1-df40-42ae-b1c7-e12574811802/d68212da-94ca-4311-9743-1c72b0f9362b",
+                "signed_in": false
+              }
+            ]
+          }
+        ],
+        "auto": {
+          "state": "stopped",
+          "installed": true,
+          "running": false,
+          "log_path": "/Users/me/.chatkeep/sync-log.jsonl"
+        }
+      }
+    }
+  ]
+}
 ```
 
 ### `claude sync log`
@@ -626,20 +959,44 @@ One result, `tool: "claude"`. `data`:
 
 One result, `tool: "claude"`. `data` is `{"entries": [...]}`, the newest N, oldest first:
 
-| Field     | Type            | Meaning                                                                |
-| --------- | --------------- | ---------------------------------------------------------------------- |
-| `at`      | time or null    | When (the last time, for a repeated change).                           |
-| `profile` | string or null  | The sync profile.                                                      |
-| `action`  | string          | `add`, `update`, `remove`, or `note` (a message from the watcher).     |
-| `chat`    | string or null  | The chat id.                                                           |
-| `title`   | string or null  | The chat title, or the text of a note.                                 |
-| `account` | string or null  | The `account/organization` whose list changed.                         |
-| `source`  | string          | `manual` for a sync someone ran, `watch` for the watcher.              |
-| `changed` | array of string | For an update: what differed, e.g. `title`.                            |
-| `times`   | int             | How often this happened in a row.                                      |
+| Field     | Type            | Meaning                                                            |
+| --------- | --------------- | ------------------------------------------------------------------ |
+| `at`      | time or null    | When (the last time, for a repeated change).                       |
+| `profile` | string or null  | The sync profile.                                                  |
+| `action`  | string          | `add`, `update`, `remove`, or `note` (a message from the watcher). |
+| `chat`    | string or null  | The chat id.                                                       |
+| `title`   | string or null  | The chat title, or the text of a note.                             |
+| `account` | string or null  | The `account/organization` whose list changed.                     |
+| `source`  | string          | `manual` for a sync someone ran, `watch` for the watcher.          |
+| `changed` | array of string | For an update: what differed, e.g. `title`.                        |
+| `times`   | int             | How often this happened in a row.                                  |
 
 ```json
-{"ok":true,"command":"claude sync log","dry_run":false,"results":[{"tool":"claude","data":{"entries":[{"at":"2026-10-27T23:20:07Z","profile":"main","action":"update","chat":"704b8a53-43db-48be-87e4-41dfb6f00b48","title":"Plan the release","account":"9efbfc68-3574-4c71-94bc-b94c905d05d0/3ab1ac9b-9a6b-4b53-9ca1-4205d57ee19d","source":"watch","changed":["lastActivityAt"],"times":1}]}}]}
+{
+  "ok": true,
+  "command": "claude sync log",
+  "dry_run": false,
+  "results": [
+    {
+      "tool": "claude",
+      "data": {
+        "entries": [
+          {
+            "at": "2026-10-27T23:20:07Z",
+            "profile": "main",
+            "action": "update",
+            "chat": "704b8a53-43db-48be-87e4-41dfb6f00b48",
+            "title": "Plan the release",
+            "account": "9efbfc68-3574-4c71-94bc-b94c905d05d0/3ab1ac9b-9a6b-4b53-9ca1-4205d57ee19d",
+            "source": "watch",
+            "changed": ["lastActivityAt"],
+            "times": 1
+          }
+        ]
+      }
+    }
+  ]
+}
 ```
 
 ### `claude sync auto status`
@@ -650,7 +1007,22 @@ One result, `tool: "claude"`. `data`: `state` (`on`: installed and running; `sto
 but not running; `off`), `installed`, `running`, and `log_path`.
 
 ```json
-{"ok":true,"command":"claude sync auto status","dry_run":false,"results":[{"tool":"claude","data":{"state":"stopped","installed":true,"running":false,"log_path":"/Users/me/.chatkeep/sync-log.jsonl"}}]}
+{
+  "ok": true,
+  "command": "claude sync auto status",
+  "dry_run": false,
+  "results": [
+    {
+      "tool": "claude",
+      "data": {
+        "state": "stopped",
+        "installed": true,
+        "running": false,
+        "log_path": "/Users/me/.chatkeep/sync-log.jsonl"
+      }
+    }
+  ]
+}
 ```
 
 ### `--version`
@@ -658,7 +1030,12 @@ but not running; `off`), `installed`, `running`, and `log_path`.
 `chatkeep --json --version`
 
 ```json
-{"ok":true,"command":"version","dry_run":false,"results":[{"tool":null,"data":{"version":"1.2.0"}}]}
+{
+  "ok": true,
+  "command": "version",
+  "dry_run": false,
+  "results": [{ "tool": null, "data": { "version": "1.2.0" } }]
+}
 ```
 
 ## Writes
@@ -683,20 +1060,22 @@ Every write command's `data` is a report:
 ```json
 {
   "title": "Move",
-  "warnings": ["skipped 9602d48d5e4595972fd32e1bb8f58cf0: destination missing /tmp/new"],
+  "warnings": [
+    "skipped 9602d48d5e4595972fd32e1bb8f58cf0: destination missing /tmp/new"
+  ],
   "skipped": ["9602d48d5e4595972fd32e1bb8f58cf0"],
   "applied": [],
   "rewritten_keys": []
 }
 ```
 
-| Field            | Type            | Meaning                                                                              |
-| ---------------- | --------------- | ------------------------------------------------------------------------------------ |
-| `title`          | string          | What ran, for display: see the list below. Do not branch on it.                      |
-| `warnings`       | array of string | Warnings, for people.                                                                |
-| `skipped`        | array of string | Items left alone (ids or lines).                                                     |
-| `applied`        | array of string | One line per change made (or, in a dry run, planned), for people.                    |
-| `rewritten_keys` | array of string | Cursor storage keys that were rewritten.                                             |
+| Field            | Type            | Meaning                                                           |
+| ---------------- | --------------- | ----------------------------------------------------------------- |
+| `title`          | string          | What ran, for display: see the list below. Do not branch on it.   |
+| `warnings`       | array of string | Warnings, for people.                                             |
+| `skipped`        | array of string | Items left alone (ids or lines).                                  |
+| `applied`        | array of string | One line per change made (or, in a dry run, planned), for people. |
+| `rewritten_keys` | array of string | Cursor storage keys that were rewritten.                          |
 
 Nothing to do is a report with empty `applied` and `skipped`. Titles: Cursor `Move`, `Copy`,
 `Split`, `Combine`, `Remove`, `Export`, `Import`, `Save`, `Reindex`, `Cache clear`; Claude Code
@@ -709,20 +1088,38 @@ Nothing to do is a report with empty `applied` and `skipped`. Titles: Cursor `Mo
 Example (`chatkeep mv -n --json --profile default ~/projects/auth /tmp/new`):
 
 ```json
-{"ok":true,"command":"mv","dry_run":true,"results":[{"tool":"cursor","data":{"title":"Move","warnings":["skipped 9602d48d5e4595972fd32e1bb8f58cf0: destination missing /tmp/new"],"skipped":["9602d48d5e4595972fd32e1bb8f58cf0"],"applied":[],"rewritten_keys":[]}}]}
+{
+  "ok": true,
+  "command": "mv",
+  "dry_run": true,
+  "results": [
+    {
+      "tool": "cursor",
+      "data": {
+        "title": "Move",
+        "warnings": [
+          "skipped 9602d48d5e4595972fd32e1bb8f58cf0: destination missing /tmp/new"
+        ],
+        "skipped": ["9602d48d5e4595972fd32e1bb8f58cf0"],
+        "applied": [],
+        "rewritten_keys": []
+      }
+    }
+  ]
+}
 ```
 
 ### Per command
 
-| Command                                   | Result `tool`             | `data`                                     |
-| ----------------------------------------- | ------------------------- | ------------------------------------------ |
-| `mv`, `cp`, `rm`, `combine`, `export`, `import` | each tool it ran for | Report                                     |
-| `split`                                   | each tool it ran for      | Report plus `chats`, see [split](#split)   |
-| `cursor save`, `cursor rx`, `cursor cache clear` | `cursor`           | Report                                     |
-| `claude accounts cp`, `claude accounts name`, `claude accounts prune`, `claude cache clear`, `claude sync`, `claude sync set`, `claude sync add`, `claude sync rm` | `claude` | Report |
-| `claude sync auto on`, `claude sync auto off` | `claude`              | Report plus `auto` (the status afterwards) |
-| `queue rm`, `queue clear`, `queue retry`  | `null`                    | Report: one `applied` line per entry, `"<verb> <id> <command>"` |
-| `queue execute`                           | `null`                    | Report plus `entries`, see [queue execute](#queue-execute) |
+| Command                                                                                                                                                            | Result `tool`        | `data`                                                          |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------- | --------------------------------------------------------------- |
+| `mv`, `cp`, `rm`, `combine`, `export`, `import`                                                                                                                    | each tool it ran for | Report                                                          |
+| `split`                                                                                                                                                            | each tool it ran for | Report plus `chats`, see [split](#split)                        |
+| `cursor save`, `cursor rx`, `cursor cache clear`                                                                                                                   | `cursor`             | Report                                                          |
+| `claude accounts cp`, `claude accounts name`, `claude accounts prune`, `claude cache clear`, `claude sync`, `claude sync set`, `claude sync add`, `claude sync rm` | `claude`             | Report                                                          |
+| `claude sync auto on`, `claude sync auto off`                                                                                                                      | `claude`             | Report plus `auto` (the status afterwards)                      |
+| `queue rm`, `queue clear`, `queue retry`                                                                                                                           | `null`               | Report: one `applied` line per entry, `"<verb> <id> <command>"` |
+| `queue execute`                                                                                                                                                    | `null`               | Report plus `entries`, see [queue execute](#queue-execute)      |
 
 Notes:
 
@@ -752,15 +1149,59 @@ So an app runs `split -n --json`, shows `chats`, lets the user change them, and 
 
 `data` is a Report plus `chats`, one per top-level chat of the source, sorted by id:
 
-| Field       | Type            | Meaning                                                        |
-| ----------- | --------------- | -------------------------------------------------------------- |
-| `id`        | string          | Chat or session id: the `CHAT` of `--assign`.                  |
-| `title`     | string or null  | Its title.                                                     |
-| `suggested` | array of string | Targets the suggestion picked, absolute; empty for none.       |
+| Field       | Type            | Meaning                                                           |
+| ----------- | --------------- | ----------------------------------------------------------------- |
+| `id`        | string          | Chat or session id: the `CHAT` of `--assign`.                     |
+| `title`     | string or null  | Its title.                                                        |
+| `suggested` | array of string | Targets the suggestion picked, absolute; empty for none.          |
 | `targets`   | array of string | Targets it goes to in this run, after `--assign`; empty for none. |
 
 ```json
-{"ok":true,"command":"split","dry_run":true,"results":[{"tool":"cursor","data":{"title":"Split","warnings":["1 chat match no target folder: a real run needs --assign CHAT=TARGET for each, or CHAT= to leave one out"],"skipped":[],"applied":["dry-run create workspace 62b2f48189be365121f05c77dbd2b880 for /Users/me/mono/api","dry-run create workspace 0b441eeef91576ef8005ee48530d7cca for /Users/me/mono/web","dry-run copy 1 chats source-hash -> 62b2f48189be365121f05c77dbd2b880","dry-run copy 1 chats source-hash -> 0b441eeef91576ef8005ee48530d7cca","source-hash"],"rewritten_keys":[],"chats":[{"id":"aaaaaaaa-0000-4000-8000-000000000001","title":"Refactor the API client","suggested":["/Users/me/mono/api"],"targets":["/Users/me/mono/api"]},{"id":"bbbbbbbb-0000-4000-8000-000000000002","title":"Style the login page","suggested":["/Users/me/mono/web"],"targets":["/Users/me/mono/web"]},{"id":"cccccccc-0000-4000-8000-000000000003","title":"Update the README","suggested":[],"targets":[]}]}}]}
+{
+  "ok": true,
+  "command": "split",
+  "dry_run": true,
+  "results": [
+    {
+      "tool": "cursor",
+      "data": {
+        "title": "Split",
+        "warnings": [
+          "1 chat match no target folder: a real run needs --assign CHAT=TARGET for each, or CHAT= to leave one out"
+        ],
+        "skipped": [],
+        "applied": [
+          "dry-run create workspace 62b2f48189be365121f05c77dbd2b880 for /Users/me/mono/api",
+          "dry-run create workspace 0b441eeef91576ef8005ee48530d7cca for /Users/me/mono/web",
+          "dry-run copy 1 chats source-hash -> 62b2f48189be365121f05c77dbd2b880",
+          "dry-run copy 1 chats source-hash -> 0b441eeef91576ef8005ee48530d7cca",
+          "source-hash"
+        ],
+        "rewritten_keys": [],
+        "chats": [
+          {
+            "id": "aaaaaaaa-0000-4000-8000-000000000001",
+            "title": "Refactor the API client",
+            "suggested": ["/Users/me/mono/api"],
+            "targets": ["/Users/me/mono/api"]
+          },
+          {
+            "id": "bbbbbbbb-0000-4000-8000-000000000002",
+            "title": "Style the login page",
+            "suggested": ["/Users/me/mono/web"],
+            "targets": ["/Users/me/mono/web"]
+          },
+          {
+            "id": "cccccccc-0000-4000-8000-000000000003",
+            "title": "Update the README",
+            "suggested": [],
+            "targets": []
+          }
+        ]
+      }
+    }
+  ]
+}
 ```
 
 The `applied` lines of a split are for display; their wording differs per tool.
@@ -774,24 +1215,63 @@ Plans every pending entry, then (without `-n`) runs them in order. One result, `
 whose plan failed or that failed; `warnings`: plan warnings as `"<id>: <warning>"`) plus
 `entries`, one per pending entry:
 
-| Field           | Type            | Meaning                                                                                      |
-| --------------- | --------------- | -------------------------------------------------------------------------------------------- |
-| `id`            | string          | Entry id.                                                                                    |
-| `argv`          | array of string | Its stored command.                                                                          |
-| `command`       | string          | `argv` quoted for a shell.                                                                   |
-| `plan`          | string          | `ok`, `warnings`, or `skip` (the plan failed; the entry is skipped).                         |
-| `plan_warnings` | array of string | Warnings of its plan.                                                                        |
-| `plan_error`    | string or null  | Why the plan failed.                                                                         |
+| Field           | Type            | Meaning                                                                                                                                 |
+| --------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`            | string          | Entry id.                                                                                                                               |
+| `argv`          | array of string | Its stored command.                                                                                                                     |
+| `command`       | string          | `argv` quoted for a shell.                                                                                                              |
+| `plan`          | string          | `ok`, `warnings`, or `skip` (the plan failed; the entry is skipped).                                                                    |
+| `plan_warnings` | array of string | Warnings of its plan.                                                                                                                   |
+| `plan_error`    | string or null  | Why the plan failed.                                                                                                                    |
 | `status`        | string          | `planned` (a dry run, or the run stopped before it), `done`, `failed`, `skipped`, or `blocked` (a tool was still open; it waits again). |
-| `error`         | string or null  | Why it failed or was skipped.                                                                |
-| `results`       | array           | One Report per tool it ran for, each with an extra `dry_run` bool.                           |
+| `error`         | string or null  | Why it failed or was skipped.                                                                                                           |
+| `results`       | array           | One Report per tool it ran for, each with an extra `dry_run` bool.                                                                      |
 
 When an entry fails (and `--continue-on-error` is not given), or any entry failed or was
 skipped, the envelope is an error (`failed`) whose `results` holds this same data. When a tool is
 still open, it is `tool_running` with `queue_args: null`, and `results` holds the data so far.
 
 ```json
-{"ok":true,"command":"queue execute","dry_run":true,"results":[{"tool":null,"data":{"title":"Queue execute","warnings":[],"skipped":[],"applied":["b970b2f4 combine --move --profile resolved 5254ff40f20eb9f28d0493f27aa9307b e3ca3ba788c27c6259e41499d7f0bcd0 -y"],"rewritten_keys":[],"entries":[{"id":"b970b2f4","argv":["combine","--move","--profile","resolved","5254ff40f20eb9f28d0493f27aa9307b","e3ca3ba788c27c6259e41499d7f0bcd0","-y"],"command":"combine --move --profile resolved 5254ff40f20eb9f28d0493f27aa9307b e3ca3ba788c27c6259e41499d7f0bcd0 -y","plan":"ok","plan_warnings":[],"plan_error":null,"status":"planned","error":null,"results":[]}]}}]}
+{
+  "ok": true,
+  "command": "queue execute",
+  "dry_run": true,
+  "results": [
+    {
+      "tool": null,
+      "data": {
+        "title": "Queue execute",
+        "warnings": [],
+        "skipped": [],
+        "applied": [
+          "b970b2f4 combine --move --profile resolved 5254ff40f20eb9f28d0493f27aa9307b e3ca3ba788c27c6259e41499d7f0bcd0 -y"
+        ],
+        "rewritten_keys": [],
+        "entries": [
+          {
+            "id": "b970b2f4",
+            "argv": [
+              "combine",
+              "--move",
+              "--profile",
+              "resolved",
+              "5254ff40f20eb9f28d0493f27aa9307b",
+              "e3ca3ba788c27c6259e41499d7f0bcd0",
+              "-y"
+            ],
+            "command": "combine --move --profile resolved 5254ff40f20eb9f28d0493f27aa9307b e3ca3ba788c27c6259e41499d7f0bcd0 -y",
+            "plan": "ok",
+            "plan_warnings": [],
+            "plan_error": null,
+            "status": "planned",
+            "error": null,
+            "results": []
+          }
+        ]
+      }
+    }
+  ]
+}
 ```
 
 ## Errors, examples

@@ -1,1 +1,27 @@
-{"ok":true,"command":"queue add","dry_run":false,"results":[{"tool":null,"data":{"entry":{"id":"3f9c2a1b","position":1,"status":"pending","interrupted":false,"argv":["mv","-y","/Users/me/old/app","/Users/me/new/app"],"command":"mv -y /Users/me/old/app /Users/me/new/app","tool":null,"cwd":"/Users/me","profile":null,"created_at":"2026-10-28T09:30:00Z","tool_version":"1.2.0","warnings":[],"last_error":null}}}]}
+{
+  "ok": true,
+  "command": "queue add",
+  "dry_run": false,
+  "results": [
+    {
+      "tool": null,
+      "data": {
+        "entry": {
+          "id": "3f9c2a1b",
+          "position": 1,
+          "status": "pending",
+          "interrupted": false,
+          "argv": ["mv", "-y", "/Users/me/old/app", "/Users/me/new/app"],
+          "command": "mv -y /Users/me/old/app /Users/me/new/app",
+          "tool": null,
+          "cwd": "/Users/me",
+          "profile": null,
+          "created_at": "2026-10-28T09:30:00Z",
+          "tool_version": "1.2.0",
+          "warnings": [],
+          "last_error": null
+        }
+      }
+    }
+  ]
+}

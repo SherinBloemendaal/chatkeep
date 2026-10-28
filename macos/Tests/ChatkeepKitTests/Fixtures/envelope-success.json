@@ -3,7 +3,7 @@
   "command": "ls",
   "dry_run": false,
   "results": [
-    {"tool": "claude", "data": {}},
-    {"tool": "cursor", "data": {}}
+    { "tool": "claude", "data": {} },
+    { "tool": "cursor", "data": {} }
   ]
 }

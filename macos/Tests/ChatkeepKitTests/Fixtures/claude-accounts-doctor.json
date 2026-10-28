@@ -1,1 +1,46 @@
-{"ok":true,"command":"claude accounts doctor","dry_run":false,"results":[{"tool":"claude","data":{"desktop_app":true,"desktop":{"account":"447c80ba-de69-436c-8bb8-3d2ecdaa12e4","label":"me@example.com","name":null,"email":"me@example.com","organizations":["3ab1ac9b-9a6b-4b53-9ca1-4205d57ee19d"]},"session":{"account":"447c80ba-de69-436c-8bb8-3d2ecdaa12e4","label":"me@example.com","email":"me@example.com","organization":"c4c4271d-9b29-47cf-9f31-06e3ae5600b2","organization_name":null},"login":{"account":"447c80ba-de69-436c-8bb8-3d2ecdaa12e4","label":"me@example.com","email":"me@example.com","organization":"c4c4271d-9b29-47cf-9f31-06e3ae5600b2","organization_name":"Example Organization"},"claude_command":"/Users/me/.local/bin/claude","stale_caches":7,"findings":[{"level":"ok","text":"Desktop sessions use the account the desktop app is signed in with."},{"level":"hint","text":"Remove the cache entries of accounts not in use: chatkeep claude accounts prune (7 entries)"}]}}]}
+{
+  "ok": true,
+  "command": "claude accounts doctor",
+  "dry_run": false,
+  "results": [
+    {
+      "tool": "claude",
+      "data": {
+        "desktop_app": true,
+        "desktop": {
+          "account": "447c80ba-de69-436c-8bb8-3d2ecdaa12e4",
+          "label": "me@example.com",
+          "name": null,
+          "email": "me@example.com",
+          "organizations": ["3ab1ac9b-9a6b-4b53-9ca1-4205d57ee19d"]
+        },
+        "session": {
+          "account": "447c80ba-de69-436c-8bb8-3d2ecdaa12e4",
+          "label": "me@example.com",
+          "email": "me@example.com",
+          "organization": "c4c4271d-9b29-47cf-9f31-06e3ae5600b2",
+          "organization_name": null
+        },
+        "login": {
+          "account": "447c80ba-de69-436c-8bb8-3d2ecdaa12e4",
+          "label": "me@example.com",
+          "email": "me@example.com",
+          "organization": "c4c4271d-9b29-47cf-9f31-06e3ae5600b2",
+          "organization_name": "Example Organization"
+        },
+        "claude_command": "/Users/me/.local/bin/claude",
+        "stale_caches": 7,
+        "findings": [
+          {
+            "level": "ok",
+            "text": "Desktop sessions use the account the desktop app is signed in with."
+          },
+          {
+            "level": "hint",
+            "text": "Remove the cache entries of accounts not in use: chatkeep claude accounts prune (7 entries)"
+          }
+        ]
+      }
+    }
+  ]
+}

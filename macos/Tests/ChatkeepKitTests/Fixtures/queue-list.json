@@ -1,1 +1,37 @@
-{"ok":true,"command":"queue list","dry_run":false,"results":[{"tool":null,"data":{"entries":[{"id":"de1cd8d8","position":null,"status":"failed","interrupted":false,"argv":["combine","--move","--profile","resolved","b42728393cad7ca6161e8ee23cf1cc08","7b86a000ce7c6377c39429a3bd7e2080","-y"],"command":"combine --move --profile resolved b42728393cad7ca6161e8ee23cf1cc08 7b86a000ce7c6377c39429a3bd7e2080 -y","tool":"cursor","cwd":"/Users/me/projects/chatkeep","profile":"resolved","created_at":"2026-10-01T10:27:20Z","tool_version":"1.1.0","warnings":[],"last_error":"collision: transcript already exists: /Users/me/.cursor/projects/x/agent-transcripts/24f3dae7\nAll changes were rolled back."}]}}]}
+{
+  "ok": true,
+  "command": "queue list",
+  "dry_run": false,
+  "results": [
+    {
+      "tool": null,
+      "data": {
+        "entries": [
+          {
+            "id": "de1cd8d8",
+            "position": null,
+            "status": "failed",
+            "interrupted": false,
+            "argv": [
+              "combine",
+              "--move",
+              "--profile",
+              "resolved",
+              "b42728393cad7ca6161e8ee23cf1cc08",
+              "7b86a000ce7c6377c39429a3bd7e2080",
+              "-y"
+            ],
+            "command": "combine --move --profile resolved b42728393cad7ca6161e8ee23cf1cc08 7b86a000ce7c6377c39429a3bd7e2080 -y",
+            "tool": "cursor",
+            "cwd": "/Users/me/projects/chatkeep",
+            "profile": "resolved",
+            "created_at": "2026-10-01T10:27:20Z",
+            "tool_version": "1.1.0",
+            "warnings": [],
+            "last_error": "collision: transcript already exists: /Users/me/.cursor/projects/x/agent-transcripts/24f3dae7\nAll changes were rolled back."
+          }
+        ]
+      }
+    }
+  ]
+}

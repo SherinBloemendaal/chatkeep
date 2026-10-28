@@ -239,17 +239,17 @@ A missing destination is a warning. That item is skipped.
 
 ### Command flags
 
-| Flag                  | Commands            | Effect                                                |
-| --------------------- | ------------------- | ----------------------------------------------------- |
-| `--project`           | `mv`, `cp`          | Also move or copy the real project folder.            |
-| `--move`              | `split`, `combine`  | Move the chats instead of copying them.               |
-| `--assign CHAT=TARGET`| `split`             | Send one chat to TARGET instead of the suggestion.    |
-| `--copy`              | `combine`           | Keep the chats in the sources (the default).          |
-| `--overwrite`         | `import`            | Replace chats that already exist instead of skipping. |
-| `--continue-on-error` | `queue execute`     | Keep going after an entry fails.                      |
-| `--full`              | `queue list`        | Show stored commands in full instead of shortened.    |
-| `--fresh`             | `ls`, `stats`       | Read every file again, then refresh the index.        |
-| `--full`              | `cursor cache scan` | Rebuild the index from scratch.                       |
+| Flag                   | Commands            | Effect                                                |
+| ---------------------- | ------------------- | ----------------------------------------------------- |
+| `--project`            | `mv`, `cp`          | Also move or copy the real project folder.            |
+| `--move`               | `split`, `combine`  | Move the chats instead of copying them.               |
+| `--assign CHAT=TARGET` | `split`             | Send one chat to TARGET instead of the suggestion.    |
+| `--copy`               | `combine`           | Keep the chats in the sources (the default).          |
+| `--overwrite`          | `import`            | Replace chats that already exist instead of skipping. |
+| `--continue-on-error`  | `queue execute`     | Keep going after an entry fails.                      |
+| `--full`               | `queue list`        | Show stored commands in full instead of shortened.    |
+| `--fresh`              | `ls`, `stats`       | Read every file again, then refresh the index.        |
+| `--full`               | `cursor cache scan` | Rebuild the index from scratch.                       |
 
 ### Examples
 

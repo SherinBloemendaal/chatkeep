@@ -1,1 +1,26 @@
-{"ok":true,"command":"cursor cache scan","dry_run":false,"results":[{"tool":"cursor","data":{"full":false,"duration_ms":86,"path":"/Users/me/.chatkeep/index.db","installs":[{"name":"default","workspaces":73,"chats":1144,"subagents":1049,"changed_sources":1,"chats_read":2,"duration_ms":78}]}}]}
+{
+  "ok": true,
+  "command": "cursor cache scan",
+  "dry_run": false,
+  "results": [
+    {
+      "tool": "cursor",
+      "data": {
+        "full": false,
+        "duration_ms": 86,
+        "path": "/Users/me/.chatkeep/index.db",
+        "installs": [
+          {
+            "name": "default",
+            "workspaces": 73,
+            "chats": 1144,
+            "subagents": 1049,
+            "changed_sources": 1,
+            "chats_read": 2,
+            "duration_ms": 78
+          }
+        ]
+      }
+    }
+  ]
+}

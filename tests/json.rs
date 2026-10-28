@@ -7,6 +7,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use chatkeep::cli::Tools;
+use chatkeep::cursor::uri::normalize_path;
 use chatkeep::engine::index::{Config, Spawner};
 use chatkeep::json;
 use serde_json::{Value, json};
@@ -39,6 +40,11 @@ fn failed(tools: &Tools, args: &[&str]) -> (Value, i32) {
 
 fn text(path: &Path) -> String {
     path.to_string_lossy().into_owned()
+}
+
+/// A folder as Cursor writes it, which on Windows means a lowercase drive letter.
+fn cursor_text(path: &Path) -> String {
+    text(&normalize_path(path))
 }
 
 fn cursor_only(home: &Home, running: bool) -> Tools {
@@ -91,12 +97,12 @@ fn ls_lists_every_workspace_with_its_fields() {
     assert_eq!(projects[0]["id"], "hash-gone");
     assert_eq!(projects[0]["destination"], "missing");
     assert_eq!(projects[0]["destination_missing"], true);
-    assert_eq!(projects[0]["path"], text(&gone));
+    assert_eq!(projects[0]["path"], cursor_text(&gone));
     let row = &projects[1];
     assert_eq!(row["tool"], "cursor");
     assert_eq!(row["id"], "hash-app");
     assert_eq!(row["kind"], "folder");
-    assert_eq!(row["path"], text(&app));
+    assert_eq!(row["path"], cursor_text(&app));
     assert_eq!(row["uri"], uri(&app));
     assert_eq!(row["install"], "default");
     assert_eq!(row["profile_label"], "default");
@@ -491,7 +497,7 @@ fn split_dry_run_shows_the_suggestion_and_assign_changes_it() {
     let home = cursor_home();
     let (api, web) = monorepo(&home);
     let tools = cursor_only(&home, false);
-    let (api, web) = (text(&api), text(&web));
+    let (api, web) = (cursor_text(&api), cursor_text(&web));
     let before = snapshot(&home);
 
     let body = ok(

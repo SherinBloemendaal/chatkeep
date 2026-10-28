@@ -92,26 +92,27 @@ struct ProcessOutput: Sendable {
         let outHandle = stdout.fileHandleForReading
         let errHandle = stderr.fileHandleForReading
 
-        let result = await withTaskCancellationHandler {
-            // Read both pipes while the tool runs, or a full pipe would make it wait forever.
-            async let out = readToEnd(outHandle)
-            async let err = readToEnd(errHandle)
-            let (output, errors) = await (out, err)
+        // Read both pipes while the tool runs, or a full pipe would make it wait forever.
+        let out = Task { await readToEnd(outHandle) }
+        let err = Task { await readToEnd(errHandle) }
+        let status = await withTaskCancellationHandler {
             var status: Int32 = -1
             for await code in statuses {
                 status = code
             }
-            return ProcessOutput(status: status, stdout: output, stderr: errors)
+            return status
         } onCancel: {
             guard stoppable else { return }
             flag.exited.withLock { exited in
                 if !exited { kill(pid, SIGTERM) }
             }
         }
+        // A stopped read is done once the tool exits: a child it started may still hold the
+        // pipes open, and its output is not wanted anyway.
         if stoppable, Task.isCancelled {
             throw ChatkeepError.cancelled
         }
-        return result
+        return ProcessOutput(status: status, stdout: await out.value, stderr: await err.value)
     }
 
     /// Reads a pipe to its end on a dispatch thread, so the wait does not hold a task thread.

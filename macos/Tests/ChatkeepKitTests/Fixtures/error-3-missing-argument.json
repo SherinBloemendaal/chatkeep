@@ -1,1 +1,11 @@
-{"ok":false,"command":"mv","error":{"kind":"missing_argument","message":"/Users/me/projects/auth exists in profiles default, resolved","hint":"Pass --profile with one of: default, resolved.","queue_args":null},"results":[]}
+{
+  "ok": false,
+  "command": "mv",
+  "error": {
+    "kind": "missing_argument",
+    "message": "/Users/me/projects/auth exists in profiles default, resolved",
+    "hint": "Pass --profile with one of: default, resolved.",
+    "queue_args": null
+  },
+  "results": []
+}

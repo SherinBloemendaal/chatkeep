@@ -1,1 +1,25 @@
-{"ok":true,"command":"claude sync log","dry_run":false,"results":[{"tool":"claude","data":{"entries":[{"at":"2026-10-27T23:20:07Z","profile":"main","action":"update","chat":"704b8a53-43db-48be-87e4-41dfb6f00b48","title":"Plan the release","account":"9efbfc68-3574-4c71-94bc-b94c905d05d0/3ab1ac9b-9a6b-4b53-9ca1-4205d57ee19d","source":"watch","changed":["lastActivityAt"],"times":1}]}}]}
+{
+  "ok": true,
+  "command": "claude sync log",
+  "dry_run": false,
+  "results": [
+    {
+      "tool": "claude",
+      "data": {
+        "entries": [
+          {
+            "at": "2026-10-27T23:20:07Z",
+            "profile": "main",
+            "action": "update",
+            "chat": "704b8a53-43db-48be-87e4-41dfb6f00b48",
+            "title": "Plan the release",
+            "account": "9efbfc68-3574-4c71-94bc-b94c905d05d0/3ab1ac9b-9a6b-4b53-9ca1-4205d57ee19d",
+            "source": "watch",
+            "changed": ["lastActivityAt"],
+            "times": 1
+          }
+        ]
+      }
+    }
+  ]
+}
