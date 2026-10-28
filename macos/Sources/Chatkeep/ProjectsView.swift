@@ -44,7 +44,7 @@ struct ProjectsView: View {
                 Text(Format.count(project.chats))
                     .monospacedDigit()
                     .frame(maxWidth: .infinity, alignment: .trailing)
-                    .help("\(project.subagents) agent chats not counted")
+                    .help(chatsHelp(project))
             }
             .width(min: 44, ideal: 52, max: 70)
             TableColumn("Size", value: \.sizeBytes) { project in
@@ -58,7 +58,7 @@ struct ProjectsView: View {
                 Text(project.lastActive.map { Format.relative($0) } ?? "No chats")
                     .foregroundStyle(project.lastActive == nil ? .tertiary : .secondary)
                     .lineLimit(1)
-                    .help(project.lastActive.map { Format.date($0) } ?? "")
+                    .help(project.lastActive.map { "Last chat: \(Format.date($0))" } ?? "This project has no chats")
             }
             .width(min: 80, ideal: 104, max: 150)
         } rows: {
@@ -94,6 +94,12 @@ struct ProjectsView: View {
         } else if !model.allProjects.isEmpty, model.visible.isEmpty {
             ContentUnavailableView.search(text: model.search)
         }
+    }
+
+    private func chatsHelp(_ project: Project) -> String {
+        let chats = "\(Format.count(project.chats)) chats"
+        guard project.subagents > 0 else { return chats }
+        return "\(chats), plus \(Format.count(project.subagents)) chats that agents started on their own (not counted here)"
     }
 
     private var subtitle: String {
@@ -169,11 +175,17 @@ struct ProjectNameCell: View {
                 Spacer(minLength: 0)
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(Theme.warning)
-                    .help("The project folder is gone. Move its chats to where the folder is now.")
             }
         }
         .padding(.vertical, 2)
-        .help(project.path ?? project.name)
+        .help(help)
+    }
+
+    /// One tooltip for the whole cell: a second one on the warning icon would never show.
+    private var help: String {
+        let place = project.path ?? project.name
+        guard project.destinationMissing else { return place }
+        return "\(place)\n\n⚠︎ This folder no longer exists. Use Move Chats to point its chats at where the folder is now."
     }
 }
 
@@ -345,7 +357,7 @@ struct ChatList: View {
                         Pill(text: "Archived", color: .secondary, systemImage: "archivebox")
                     }
                 }
-                .help(chat.title ?? "Untitled")
+                .help(chatHelp(chat))
             }
             .width(min: 160, ideal: 320)
             TableColumn("Updated") { chat in
@@ -398,6 +410,13 @@ struct ChatList: View {
                 ContentUnavailableView("No Chats", systemImage: "bubble.left", description: Text("This project has no chats left."))
             }
         }
+    }
+
+    private func chatHelp(_ chat: Chat) -> String {
+        var lines = [chat.title ?? "Untitled"]
+        if chat.subagent { lines.append("Agent: a chat an agent started on its own while you worked") }
+        if chat.archived == true { lines.append("Archived: hidden from the chat list in Claude Code") }
+        return lines.joined(separator: "\n")
     }
 
     private func tokens(_ chat: Chat) -> String {

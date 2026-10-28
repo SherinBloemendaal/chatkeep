@@ -57,6 +57,17 @@ enum Theme {
     }
 }
 
+extension Tool {
+    /// What the tool icon in a row means, for its tooltip.
+    var explanation: String {
+        switch self {
+        case .cursor: "Cursor project: chats from the Cursor editor"
+        case .claude: "Claude Code project: chats from Claude Code"
+        case .unknown(let raw): "Chats from \(raw), a tool this app does not know yet"
+        }
+    }
+}
+
 // MARK: - Formatting
 
 enum Format {
@@ -177,8 +188,9 @@ struct ToolIcon: View {
     var body: some View {
         Image(systemName: Theme.symbol(for: tool))
             .foregroundStyle(Theme.color(for: tool))
-            .frame(width: 18)
-            .help(tool.label)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .help(tool.explanation)
             .accessibilityLabel(tool.label)
     }
 }

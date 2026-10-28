@@ -11,8 +11,7 @@ struct ContentView: View {
             List(selection: Binding(get: { app.screen }, set: { if let screen = $0 { app.screen = screen } })) {
                 Section {
                     row(.projects)
-                    row(.queue)
-                        .badge(app.queue.pendingCount)
+                    row(.queue, badge: app.queue.pendingCount)
                     row(.history)
                     row(.stats)
                 }
@@ -30,7 +29,6 @@ struct ContentView: View {
                 .navigationTitle(app.screen.title)
         }
         .navigationSplitViewStyle(.balanced)
-        .tint(Theme.teal)
         .environment(app)
         .dropDestination(for: URL.self) { urls, _ in
             app.open(urls)
@@ -72,8 +70,11 @@ struct ContentView: View {
         return "\(choice.url.lastPathComponent) on \(choice.project.name)"
     }
 
-    private func row(_ screen: Screen) -> some View {
-        Label(screen.title, systemImage: screen.systemImage).tag(screen)
+    /// The tag goes last: a modifier after it hides the tag from the list's selection.
+    private func row(_ screen: Screen, badge: Int = 0) -> some View {
+        Label(screen.title, systemImage: screen.systemImage)
+            .badge(badge)
+            .tag(screen)
     }
 
     @ViewBuilder
