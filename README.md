@@ -233,6 +233,7 @@ A missing destination is a warning. That item is skipped.
 | `--regex`           | Treat `--replace` FROM as a regular expression.        |
 | `--unsaved`         | Only unsaved `Workspaces/<ts>` sessions. Cursor only.  |
 | `--color WHEN`      | Color output: `auto` (default), `always`, or `never`.  |
+| `--json`            | One JSON document on stdout; never asks. See below.    |
 
 `auto` colors a terminal and honors `NO_COLOR`, `CLICOLOR_FORCE`, `FORCE_COLOR`, `CLICOLOR=0`, and `TERM=dumb`.
 
@@ -242,6 +243,7 @@ A missing destination is a warning. That item is skipped.
 | --------------------- | ------------------- | ----------------------------------------------------- |
 | `--project`           | `mv`, `cp`          | Also move or copy the real project folder.            |
 | `--move`              | `split`, `combine`  | Move the chats instead of copying them.               |
+| `--assign CHAT=TARGET`| `split`             | Send one chat to TARGET instead of the suggestion.    |
 | `--copy`              | `combine`           | Keep the chats in the sources (the default).          |
 | `--overwrite`         | `import`            | Replace chats that already exist instead of skipping. |
 | `--continue-on-error` | `queue execute`     | Keep going after an entry fails.                      |
@@ -258,6 +260,20 @@ chatkeep split 0123456789abcdef0123456789abcdef ~/projects/api ~/projects/fronte
 chatkeep combine ~/projects/api aaaaaaaabbbbbbbbccccccccdddddddd 9f8e7d6c5b4a39281706f5e4d3c2b1a0 --move
 chatkeep cp ~/projects/api ~/projects/api-v2 --tool claude
 chatkeep claude accounts cp 1a2b3c4d
+```
+
+### JSON output
+
+`--json` makes any command print exactly one JSON document on stdout, for apps and scripts:
+`{"ok": true, "command": ..., "dry_run": ..., "results": [{"tool": ..., "data": ...}]}`, or
+`{"ok": false, "error": {"kind": ..., "message": ..., "hint": ..., "queue_args": ...}}` with a
+non-zero exit code. It never asks: a missing argument is an error, and a write command needs `-n`
+or `-y`. `update`, `uninstall`, `github`, `help`, and `claude sync watch` have no JSON output.
+[docs/json.md](docs/json.md) describes every command's output.
+
+```bash
+chatkeep ls --json
+chatkeep mv -n --json ~/old/app ~/new/app
 ```
 
 ## 📇 Index
@@ -295,6 +311,8 @@ That refresh opens Cursor's databases read-only, re-reads only the files whose s
 1. **Auto-suggest (default).** For each chat, touched file paths (for Claude Code: the files its tools read or wrote) are mapped to the longest matching target root. A table shows the title, date, and suggested targets. Space toggles targets. Chats with no evidence stay **unassigned** until you pick a target.
 2. **All to all.** Every chat is copied to every target.
 3. **Manual.** Pick chats per target, with no suggestions.
+
+`--assign CHAT=TARGET` decides for one chat on the command line (repeat it as needed; `CHAT=` leaves a chat out). Chats without it keep the suggestion.
 
 ## 🧳 Export archive
 

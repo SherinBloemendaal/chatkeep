@@ -1608,3 +1608,35 @@ fn cursor_running_keeps_the_rollback_note() {
         75
     );
 }
+
+#[test]
+fn added_flags_go_before_the_double_dash_or_replace_their_value() {
+    let argv = |args: &[&str]| -> Vec<String> { args.iter().map(|arg| arg.to_string()).collect() };
+    assert_eq!(
+        queue::cursor_part(&argv(&["mv", "-y", "/a", "/b"])),
+        argv(&["mv", "-y", "/a", "/b", "--tool", "cursor"])
+    );
+    assert_eq!(
+        queue::cursor_part(&argv(&["combine", "-y", "--", "/all", "/a", "/b"])),
+        argv(&[
+            "combine", "-y", "--tool", "cursor", "--", "/all", "/a", "/b"
+        ])
+    );
+    assert_eq!(
+        queue::cursor_part(&argv(&["mv", "--tool", "claude", "--", "/a", "--tool"])),
+        argv(&["mv", "--tool", "cursor", "--", "/a", "--tool"])
+    );
+    assert_eq!(
+        queue::cursor_part(&argv(&["mv", "--tool=claude", "/a", "/b"])),
+        argv(&["mv", "--tool=cursor", "/a", "/b"])
+    );
+    // Whatever the result, it parses back to Cursor's part with the same positionals.
+    let stored = queue::cursor_part(&argv(&["mv", "-y", "--", "/a", "/b"]));
+    match queue_cmd::parse_command(&stored).unwrap() {
+        Command::Mv(args) => {
+            assert_eq!(args.common.tool, Some(cli::Tool::Cursor));
+            assert_eq!((args.from, args.to), (Some("/a".into()), Some("/b".into())));
+        }
+        other => panic!("expected mv, got {other:?}"),
+    }
+}

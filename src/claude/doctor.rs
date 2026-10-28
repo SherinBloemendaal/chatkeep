@@ -183,6 +183,16 @@ enum Finding {
 }
 
 impl Finding {
+    /// `ok`, `warn`, `info`, or `hint`, with the text.
+    fn parts(&self) -> (&'static str, &str) {
+        match self {
+            Finding::Ok(text) => ("ok", text),
+            Finding::Warn(text) => ("warn", text),
+            Finding::Info(text) => ("info", text),
+            Finding::Hint(text) => ("hint", text),
+        }
+    }
+
     fn line(&self, theme: Theme) -> String {
         match self {
             Finding::Ok(text) => ui::ok_line(theme, text),
@@ -191,6 +201,17 @@ impl Finding {
             Finding::Hint(text) => ui::hint_line(theme, text),
         }
     }
+}
+
+/// What `accounts doctor` concludes, as `(level, text)`: `ok`, `warn`, `info`, or `hint`.
+pub fn conclusions(checkup: &Checkup, book: &Book) -> Vec<(&'static str, String)> {
+    findings(checkup, book)
+        .iter()
+        .map(|finding| {
+            let (level, text) = finding.parts();
+            (level, text.to_string())
+        })
+        .collect()
 }
 
 fn findings(checkup: &Checkup, book: &Book) -> Vec<Finding> {

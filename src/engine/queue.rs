@@ -280,7 +280,8 @@ pub fn retry(home: &Path, ids: Option<&[String]>) -> Result<Vec<String>> {
     Ok(reset)
 }
 
-const INTERRUPTED: &str =
+/// `last_error` of an entry that was running when its `queue execute` stopped.
+pub const INTERRUPTED: &str =
     "interrupted during a previous run; check chatkeep history, then retry or rm";
 
 pub fn fail_interrupted(home: &Path) -> Result<Vec<String>> {
@@ -620,6 +621,42 @@ pub fn shell_join(args: &[String]) -> String {
         .map(|arg| shell_quote(arg))
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+/// The flags that leave only Cursor's part of a command that runs for both tools.
+pub const CURSOR_ONLY: [&str; 2] = ["--tool", "cursor"];
+
+/// `argv` with `flags` (`--name value` pairs) where flags belong: a flag `argv` already has gets
+/// the new value, any other goes before the first `--`, so it is never read as a positional
+/// argument.
+pub fn with_flags(argv: &[String], flags: &[String]) -> Vec<String> {
+    let mut out = argv.to_vec();
+    for pair in flags.chunks(2) {
+        let name = &pair[0];
+        let value = pair.get(1);
+        let end = out.iter().position(|arg| arg == "--").unwrap_or(out.len());
+        let joined = format!("{name}=");
+        let found = out[..end]
+            .iter()
+            .position(|arg| arg == name || arg.starts_with(&joined));
+        match (found, value) {
+            (Some(at), Some(value)) if out[at] == *name && at + 1 < end => {
+                out[at + 1] = value.clone();
+            }
+            (Some(at), Some(value)) if out[at] == *name => out.insert(at + 1, value.clone()),
+            (Some(at), Some(value)) => out[at] = format!("{joined}{value}"),
+            (Some(_), None) => {}
+            (None, _) => {
+                out.splice(end..end, pair.iter().cloned());
+            }
+        }
+    }
+    out
+}
+
+/// `argv` narrowed to Cursor's part, for an entry whose Claude Code part already ran.
+pub fn cursor_part(argv: &[String]) -> Vec<String> {
+    with_flags(argv, &CURSOR_ONLY.map(String::from))
 }
 
 pub fn queue_add_command(args: &[String]) -> String {

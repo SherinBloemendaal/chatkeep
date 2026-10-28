@@ -49,6 +49,9 @@ pub struct Cli {
     /// Color output: auto, always, or never.
     #[arg(long, global = true, value_enum, value_name = "WHEN", default_value_t = ColorMode::Auto, value_hint = ValueHint::Other)]
     pub color: ColorMode,
+    /// Print one JSON document on stdout instead of text, and never ask (see docs/json.md).
+    #[arg(long, global = true)]
+    pub json: bool,
     #[command(subcommand)]
     pub command: Option<Command>,
 }
@@ -390,6 +393,10 @@ pub struct SplitArgs {
     /// Remove chats from the source after they land on the targets.
     #[arg(long = "move")]
     pub move_chats: bool,
+    /// Send one chat to TARGET instead of where the suggestion puts it. Repeat it for more
+    /// chats or targets; CHAT= keeps a chat out of the split.
+    #[arg(long, value_name = "CHAT=TARGET", value_hint = ValueHint::Other)]
+    pub assign: Vec<String>,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -596,11 +603,14 @@ pub struct QueueExecuteArgs {
 
 pub fn run() -> i32 {
     ui::signal::install();
-    let settings = ui::term::init(ui::term::mode_from_args(std::env::args_os()));
     let args: Vec<String> = std::env::args_os()
         .skip(1)
         .map(|arg| arg.to_string_lossy().into_owned())
         .collect();
+    if crate::json::requested(&args) {
+        return crate::json::run(&args);
+    }
+    let settings = ui::term::init(ui::term::mode_from_args(std::env::args_os()));
     if let Some(path) = help_request(&args) {
         return match show_help(&path) {
             Ok(()) => 0,
@@ -633,6 +643,8 @@ pub struct Tools {
     /// chatkeep's own state folder: history, queue, backups.
     home: PathBuf,
     mode: Option<Mode>,
+    /// `--json`: nothing is drawn and nothing is asked.
+    json: bool,
 }
 
 /// How the queue runs a stored command: from the folder it was queued in, without prompts.
@@ -678,6 +690,7 @@ impl Tools {
             claude,
             home,
             mode: None,
+            json: false,
         })
     }
 
@@ -695,7 +708,24 @@ impl Tools {
             claude,
             home,
             mode: None,
+            json: false,
         }
+    }
+
+    /// The same tools for a `--json` run: no spinners, tables, or prompts.
+    pub fn for_json(&self) -> Self {
+        let mut tools = self.clone();
+        tools.json = true;
+        tools
+    }
+
+    pub fn is_json(&self) -> bool {
+        self.json
+    }
+
+    /// chatkeep's own state folder: history, queue, backups.
+    pub fn home(&self) -> &Path {
+        &self.home
     }
 
     /// The same tools, running stored commands the way the queue does.
@@ -730,6 +760,10 @@ impl Tools {
                 rt.quiet = true;
                 rt.interactive = false;
             }
+            if self.json {
+                rt.quiet = true;
+                rt.interactive = false;
+            }
             rt
         }))
     }
@@ -748,6 +782,10 @@ impl Tools {
                 }
                 rt.dry_run |= mode.dry_run;
                 rt.yes = true;
+                rt.quiet = true;
+                rt.interactive = false;
+            }
+            if self.json {
                 rt.quiet = true;
                 rt.interactive = false;
             }
@@ -776,8 +814,8 @@ impl Tools {
             home: self.home.clone(),
             dry_run,
             yes: yes || given_yes,
-            quiet,
-            interactive,
+            quiet: quiet || self.json,
+            interactive: interactive && !self.json,
         }
     }
 }
@@ -871,7 +909,7 @@ impl Route {
 }
 
 /// The tool a command names by itself: its namespace, `--tool`, or a flag only Cursor has.
-fn named_tool(command: &Command, common: &CommonArgs) -> Result<Option<Tool>> {
+pub(crate) fn named_tool(command: &Command, common: &CommonArgs) -> Result<Option<Tool>> {
     let implied = match command {
         Command::Cursor(_) => Some(Tool::Cursor),
         Command::Claude(_) => Some(Tool::Claude),
@@ -1180,9 +1218,9 @@ pub fn run_route(route: Route, sink: &mut dyn FnMut(&'static str, Outcome) -> Re
 
 /// Claude Code's half already ran, so only Cursor's half is left: an open Cursor queues just
 /// that, and any other failure says so.
-fn after_claude(mut err: anyhow::Error) -> anyhow::Error {
+pub(crate) fn after_claude(mut err: anyhow::Error) -> anyhow::Error {
     if let Some(running) = err.downcast_mut::<engine::CursorRunning>() {
-        running.queue_args = vec!["--tool".to_string(), "cursor".to_string()];
+        running.queue_args = engine::queue::CURSOR_ONLY.map(String::from).to_vec();
         return err;
     }
     ui::hinted(
@@ -1244,7 +1282,7 @@ pub fn plan(rt: &Runtime, command: Command) -> Result<Outcome> {
     perform(&rt, command)
 }
 
-fn perform(rt: &Runtime, command: Command) -> Result<Outcome> {
+pub(crate) fn perform(rt: &Runtime, command: Command) -> Result<Outcome> {
     let finished = |rt: &Runtime, title, report| Outcome::Finished {
         dry_run: rt.dry_run,
         title,
@@ -1571,8 +1609,18 @@ fn run_split(rt: &Runtime, args: SplitArgs) -> Result<Outcome> {
     let target_paths: Vec<PathBuf> = targets.iter().map(PathBuf::from).collect();
     let workspace = engine::find_workspace(rt, &source)?
         .ok_or_else(|| anyhow::anyhow!("no workspace matches {source}"))?;
-    let suggestion = suggest_split(rt, &workspace, &target_paths)?;
-    let assigned = split_assignments(rt.interactive, &suggestion, &target_paths)?;
+    let suggestion = with_assignments(
+        suggest_split(rt, &workspace, &target_paths)?,
+        &args.assign,
+        &target_paths,
+        |path| rt.resolve_path(path),
+    )?;
+    let assigned = split_assignments(
+        rt.interactive,
+        !args.assign.is_empty(),
+        &suggestion,
+        &target_paths,
+    )?;
     confirm_split(rt.quiet, rt.dry_run, rt.yes, rt.interactive, &assigned)?;
     let report = split_workspace(rt, &source, &target_paths, &assigned, args.move_chats)?;
     Ok(Outcome::Finished {
@@ -1596,14 +1644,54 @@ pub fn split_targets(given: Vec<String>, interactive: bool) -> Result<Vec<String
     )
 }
 
+/// The suggestion with `--assign CHAT=TARGET` applied: a chat named there goes to the targets
+/// named for it (none for `CHAT=`), and every other chat keeps what was suggested.
+pub fn with_assignments(
+    mut suggestion: engine::SplitSuggestion,
+    given: &[String],
+    target_paths: &[PathBuf],
+    resolve: impl Fn(&Path) -> PathBuf,
+) -> Result<engine::SplitSuggestion> {
+    let mut chosen: std::collections::BTreeMap<String, Vec<PathBuf>> = Default::default();
+    for value in given {
+        let Some((id, target)) = value.split_once('=') else {
+            bail!("--assign takes CHAT=TARGET, not {value}");
+        };
+        if !suggestion.titles.contains_key(id) {
+            bail!("--assign names chat {id}, which the source does not hold");
+        }
+        let slot = chosen.entry(id.to_string()).or_default();
+        if target.is_empty() {
+            continue;
+        }
+        let wanted = resolve(Path::new(target));
+        let Some(found) = target_paths
+            .iter()
+            .find(|path| resolve(path.as_path()) == wanted)
+        else {
+            bail!("--assign sends chat {id} to {target}, which is not one of the split targets");
+        };
+        if !slot.contains(found) {
+            slot.push(found.clone());
+        }
+    }
+    for (id, targets) in chosen {
+        suggestion.unassigned.retain(|other| *other != id);
+        suggestion.assigned.insert(id, targets);
+    }
+    Ok(suggestion)
+}
+
 /// Which targets each chat goes to: the suggestion, every target, or what the user picks.
-/// A chat that matches no target is asked about, or stops a run that cannot ask.
+/// A chat that matches no target is asked about, or stops a run that cannot ask. `assigned_given`
+/// says `--assign` already chose, so the suggestion is used without asking how.
 pub fn split_assignments(
     interactive: bool,
+    assigned_given: bool,
     suggestion: &engine::SplitSuggestion,
     target_paths: &[PathBuf],
 ) -> Result<std::collections::BTreeMap<String, Vec<PathBuf>>> {
-    let mode = if interactive && ui::stdout_is_tty() {
+    let mode = if interactive && !assigned_given && ui::stdout_is_tty() {
         match ui::select(
             "Assignment",
             &["Auto-suggest", "All to all", "Manual"],
@@ -1635,7 +1723,8 @@ pub fn split_assignments(
                 continue;
             }
             if !interactive {
-                return Err(ui::hinted(
+                return Err(ui::lacking(
+                    ui::Lacking::Argument,
                     format!(
                         "{} match no target folder",
                         ui::plural(suggestion.unassigned.len(), "chat", "chats")
@@ -1827,7 +1916,8 @@ fn ask_install(rt: &Runtime, names: &[String], why: &str) -> Result<Runtime> {
     } else if names.len() == 1 {
         names[0].clone()
     } else if !rt.interactive {
-        return Err(ui::hinted(
+        return Err(ui::lacking(
+            ui::Lacking::Argument,
             why.to_string(),
             format!("Pass --profile with one of: {}.", names.join(", ")),
         ));
@@ -2033,7 +2123,11 @@ fn pick_many(rt: &Runtime, prompt: &str) -> Result<(Runtime, Vec<String>)> {
     pick_from(rt, prompt, |_| true)
 }
 
-fn one_target(rt: &Runtime, target: Option<String>, prompt: &str) -> Result<(Runtime, String)> {
+pub(crate) fn one_target(
+    rt: &Runtime,
+    target: Option<String>,
+    prompt: &str,
+) -> Result<(Runtime, String)> {
     match target {
         Some(target) => Ok((resolve_install(rt, &[target.as_str()])?, target)),
         None => {
@@ -2347,6 +2441,13 @@ impl Command {
             Self::Split(args) => {
                 for target in &mut args.targets {
                     *target = anchor_user_path(target, cwd);
+                }
+                for value in &mut args.assign {
+                    if let Some((id, target)) = value.split_once('=')
+                        && !target.is_empty()
+                    {
+                        *value = format!("{id}={}", anchor_user_path(target, cwd));
+                    }
                 }
             }
             Self::Export(args) => {

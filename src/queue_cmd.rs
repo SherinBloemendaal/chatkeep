@@ -121,6 +121,35 @@ pub fn dry_run_reaches_guard(rt: &Runtime, argv: &[String]) -> Result<bool> {
 }
 
 fn run_add(tools: &Tools, session: &Session, args: QueueAddArgs) -> Result<()> {
+    let (entry, position) = add_entry(tools, session, args)?;
+    let theme = Theme::stdout();
+    println!(
+        "{}",
+        ui::ok_line(
+            theme,
+            &format!(
+                "queued {} at position {}",
+                theme.id(&entry.id),
+                theme.number(ui::count(position as u64))
+            )
+        )
+    );
+    if !entry.warnings.is_empty() {
+        let theme = Theme::stderr();
+        for warning in &entry.warnings {
+            eprintln!("{}", ui::warn_line(theme, warning));
+        }
+    }
+    Ok(())
+}
+
+/// Check that the command of `args` is valid and has to wait, then store it: the entry and
+/// its position among the pending ones.
+pub fn add_entry(
+    tools: &Tools,
+    session: &Session,
+    args: QueueAddArgs,
+) -> Result<(queue::Entry, usize)> {
     let command = parse_command(&args.argv)?;
     if matches!(command, Command::Queue(_)) {
         bail!("cannot nest queue commands");
@@ -144,26 +173,7 @@ fn run_add(tools: &Tools, session: &Session, args: QueueAddArgs) -> Result<()> {
         ));
     }
     let cwd = env::current_dir().context("cannot read the current directory")?;
-    let (entry, position) = queue::add(&session.home, args.argv, cwd, profile, warnings)?;
-    let theme = Theme::stdout();
-    println!(
-        "{}",
-        ui::ok_line(
-            theme,
-            &format!(
-                "queued {} at position {}",
-                theme.id(&entry.id),
-                theme.number(ui::count(position as u64))
-            )
-        )
-    );
-    if !entry.warnings.is_empty() {
-        let theme = Theme::stderr();
-        for warning in &entry.warnings {
-            eprintln!("{}", ui::warn_line(theme, warning));
-        }
-    }
-    Ok(())
+    queue::add(&session.home, args.argv, cwd, profile, warnings)
 }
 
 fn run_list(rt: &Session, args: QueueListArgs) -> Result<()> {
@@ -530,9 +540,7 @@ fn run_execute(tools: &Tools, rt: &Session, args: QueueExecuteArgs) -> Result<()
             Err(err) => {
                 // Claude Code's half is done; what is left of this entry is Cursor's half.
                 if performed.claude_done {
-                    let mut argv = entry.argv.clone();
-                    argv.extend(["--tool".to_string(), "cursor".to_string()]);
-                    queue::set_argv_locked(&home, &entry.id, argv)?;
+                    queue::set_argv_locked(&home, &entry.id, queue::cursor_part(&entry.argv))?;
                 }
                 if is_blocked(&err) {
                     queue::update_locked(&home, &entry.id, queue::Status::Pending, None)?;
@@ -578,6 +586,147 @@ fn run_execute(tools: &Tools, rt: &Session, args: QueueExecuteArgs) -> Result<()
                 )
             )
         );
+    }
+    if stopped {
+        bail!("queue execute stopped after a failure");
+    }
+    if failed > 0 || skipped > 0 {
+        bail!("queue execute finished with failures");
+    }
+    Ok(())
+}
+
+/// What `queue execute` did with one pending entry, for `--json`.
+pub struct EntryRun {
+    pub entry: queue::Entry,
+    /// The warnings of its plan, or why it is skipped.
+    pub plan: std::result::Result<Vec<String>, String>,
+    /// `planned` (a dry run, or not reached), `done`, `failed`, `skipped`, or `blocked` (a tool
+    /// is still open; the entry waits again).
+    pub status: &'static str,
+    pub error: Option<String>,
+    /// What the command produced, one result per tool it ran for.
+    pub outcomes: Vec<Outcome>,
+}
+
+/// `queue execute` without a word on the terminal: `runs` gets every pending entry and what
+/// happened to it, also when the run stops early.
+pub fn execute_quietly(
+    tools: &Tools,
+    rt: &Session,
+    args: &QueueExecuteArgs,
+    runs: &mut Vec<EntryRun>,
+) -> Result<()> {
+    let home = rt.home.clone();
+    let entries = queue::load(&home)?;
+    let waiting = queue::pending(&entries);
+    let guards_cursor = tools.has_cursor()
+        && (!tools.has_claude() || waiting.iter().any(|entry| may_use_cursor(tools, entry)));
+    if !rt.dry_run
+        && guards_cursor
+        && let Err(err) = require_cursor_closed(tools)
+    {
+        return Err(map_execute_blocked(err, waiting.len()));
+    }
+    let _lock = queue::require_lock(&home)?;
+    if !rt.dry_run {
+        queue::fail_interrupted_locked(&home)?;
+    }
+    let entries = queue::load(&home)?;
+    let pending: Vec<queue::Entry> = queue::pending(&entries).into_iter().cloned().collect();
+    if pending.is_empty() {
+        return Ok(());
+    }
+    if let Some(cursor) = tools.cursor(&cli::unprompted())?
+        && let Err(err) = index::load(&cursor)
+    {
+        ui::warn(&format!(
+            "the index was not refreshed before planning: {err:#}"
+        ));
+    }
+    let labels: Vec<String> = pending.iter().map(|entry| entry.id.clone()).collect();
+    let checklist = ui::Checklist::new("plan", labels, true, false);
+    let planned = plan_all(tools, &pending, &checklist);
+    drop(checklist);
+    for (entry, (result, _)) in pending.into_iter().zip(planned) {
+        runs.push(EntryRun {
+            entry,
+            plan: result.map_err(|err| format!("{err:#}")),
+            status: "planned",
+            error: None,
+            outcomes: Vec::new(),
+        });
+    }
+    if rt.dry_run {
+        return Ok(());
+    }
+    if !ui::confirm("Execute the pending queue entries?", rt.yes, rt.interactive)? {
+        bail!("aborted");
+    }
+    let total = runs.len();
+    let mut stopped = false;
+    let mut failed = 0usize;
+    let mut skipped = 0usize;
+    for (index, run) in runs.iter_mut().enumerate() {
+        let remaining = total - index;
+        let entry = run.entry.clone();
+        let skip = run.plan.as_ref().err().cloned();
+        if skip.is_none()
+            && may_use_cursor(tools, &entry)
+            && let Err(err) = require_cursor_closed(tools)
+        {
+            run.status = "blocked";
+            return Err(map_execute_blocked(err, remaining));
+        }
+        if let Some(message) = skip {
+            queue::update_locked(
+                &home,
+                &entry.id,
+                queue::Status::Skipped,
+                Some(message.clone()),
+            )?;
+            run.status = "skipped";
+            run.error = Some(message);
+            skipped += 1;
+            continue;
+        }
+        queue::update_locked(&home, &entry.id, queue::Status::Running, None)?;
+        let performed = perform_entry(tools, &entry);
+        run.outcomes = performed
+            .outcomes
+            .into_iter()
+            .map(|(_, outcome)| outcome)
+            .collect();
+        let err = match performed.result {
+            Ok(()) => {
+                queue::remove_locked(&home, std::slice::from_ref(&entry.id))?;
+                run.status = "done";
+                continue;
+            }
+            Err(err) => err,
+        };
+        if performed.claude_done {
+            queue::set_argv_locked(&home, &entry.id, queue::cursor_part(&entry.argv))?;
+        }
+        if is_blocked(&err) {
+            queue::update_locked(&home, &entry.id, queue::Status::Pending, None)?;
+            run.status = "blocked";
+            return Err(map_execute_blocked(err, remaining));
+        }
+        let message = format!("{err:#}");
+        queue::update_locked(
+            &home,
+            &entry.id,
+            queue::Status::Failed,
+            Some(message.clone()),
+        )?;
+        run.status = "failed";
+        run.error = Some(message);
+        failed += 1;
+        if !args.continue_on_error {
+            stopped = true;
+            break;
+        }
     }
     if stopped {
         bail!("queue execute stopped after a failure");
@@ -698,11 +847,7 @@ pub fn cursor_blocked_report(running: &CursorRunning, argv: &[String]) -> Cursor
     });
     match &running.hint {
         CursorRunningHint::QueueAdd => {
-            let argv: Vec<String> = argv
-                .iter()
-                .chain(running.queue_args.iter())
-                .cloned()
-                .collect();
+            let argv = queue::with_flags(argv, &running.queue_args);
             let queued = queue::queue_add_command(&argv);
             CursorBlockedReport {
                 summary: running.summary.clone(),

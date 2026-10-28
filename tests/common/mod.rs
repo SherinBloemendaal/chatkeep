@@ -39,6 +39,30 @@ impl Probe for FixedProbe {
     }
 }
 
+/// A Cursor that is closed for the first `closed` looks and open from then on: it opens while a
+/// command runs.
+#[derive(Debug)]
+pub struct OpensAfter {
+    pub closed: usize,
+    pub looks: std::sync::atomic::AtomicUsize,
+}
+
+impl OpensAfter {
+    pub fn new(closed: usize) -> Self {
+        Self {
+            closed,
+            looks: std::sync::atomic::AtomicUsize::new(0),
+        }
+    }
+}
+
+impl Probe for OpensAfter {
+    fn instances(&self) -> anyhow::Result<Vec<Instance>> {
+        let look = self.looks.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        FixedProbe(look >= self.closed).instances()
+    }
+}
+
 pub fn disable_update_check() {
     static ONCE: std::sync::Once = std::sync::Once::new();
     ONCE.call_once(|| unsafe {

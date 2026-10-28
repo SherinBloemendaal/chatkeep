@@ -303,6 +303,12 @@ pub const FLAGS: &[Flag] = &[
     ),
     flag(
         "",
+        "--assign",
+        "CHAT=TARGET",
+        "With split, send one chat to TARGET instead of the suggested target",
+    ),
+    flag(
+        "",
         "--copy",
         "",
         "With combine, keep chats in the sources (the default)",
@@ -336,6 +342,12 @@ pub const FLAGS: &[Flag] = &[
         "--color",
         "WHEN",
         "Color output: auto, always, or never",
+    ),
+    flag(
+        "",
+        "--json",
+        "",
+        "Print one JSON document instead of text; never asks (docs/json.md)",
     ),
     flag("-h", "--help", "", "Show this help"),
     flag("-V", "--version", "", "Print the version"),

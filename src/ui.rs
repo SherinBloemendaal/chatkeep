@@ -656,6 +656,17 @@ fn split_subject(text: &str) -> (&str, &str) {
 pub struct Hinted {
     pub message: String,
     pub hint: String,
+    /// Set when the run stopped only because it could not ask for something.
+    pub lacking: Option<Lacking>,
+}
+
+/// What a run that may not ask still needed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Lacking {
+    /// An argument a terminal would have asked for.
+    Argument,
+    /// A yes that `-y` gives.
+    Confirmation,
 }
 
 impl Display for Hinted {
@@ -675,6 +686,20 @@ pub fn hinted(message: impl Into<String>, hint: impl Into<String>) -> anyhow::Er
     anyhow::Error::new(Hinted {
         message: message.into(),
         hint: hint.into(),
+        lacking: None,
+    })
+}
+
+/// A `hinted` error for a run that stopped because it could not ask for `lacking`.
+pub fn lacking(
+    lacking: Lacking,
+    message: impl Into<String>,
+    hint: impl Into<String>,
+) -> anyhow::Error {
+    anyhow::Error::new(Hinted {
+        message: message.into(),
+        hint: hint.into(),
+        lacking: Some(lacking),
     })
 }
 

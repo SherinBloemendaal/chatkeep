@@ -290,8 +290,18 @@ fn split(rt: &claude::Runtime, args: SplitArgs) -> Result<Outcome> {
     let projects = store::discover(rt)?;
     let project = store::find(&projects, rt, &source)
         .ok_or_else(|| anyhow::anyhow!("no Claude Code project matches {source}"))?;
-    let suggestion = transfer::suggest_split(rt, project, &target_paths)?;
-    let assigned = cli::split_assignments(rt.interactive, &suggestion, &target_paths)?;
+    let suggestion = cli::with_assignments(
+        transfer::suggest_split(rt, project, &target_paths)?,
+        &args.assign,
+        &target_paths,
+        |path| rt.resolve_path(path),
+    )?;
+    let assigned = cli::split_assignments(
+        rt.interactive,
+        !args.assign.is_empty(),
+        &suggestion,
+        &target_paths,
+    )?;
     cli::confirm_split(rt.quiet, rt.dry_run, rt.yes, rt.interactive, &assigned)?;
     let report = transfer::split(rt, project, &target_paths, &assigned, args.move_chats)?;
     Ok(finished(rt, "Split (Claude Code)", report))
@@ -449,7 +459,8 @@ fn pick_account(rt: &claude::Runtime, to: Option<&str>) -> Result<String> {
     match others.as_slice() {
         [] => bail!("the desktop app has no other account on this machine to copy chats from"),
         [only] => Ok(only.account.clone()),
-        _ if !rt.interactive => Err(ui::hinted(
+        _ if !rt.interactive => Err(ui::lacking(
+            ui::Lacking::Argument,
             "accounts cp needs the account to copy from",
             format!(
                 "Pass one of: {}.",
@@ -486,7 +497,8 @@ fn name_account(rt: &claude::Runtime, args: AccountNameArgs) -> Result<Outcome> 
                 bail!("the desktop app has no account on this machine to name");
             }
             if !rt.interactive {
-                return Err(ui::hinted(
+                return Err(ui::lacking(
+                    ui::Lacking::Argument,
                     "accounts name needs the account to name",
                     "Pass its id or the start of it; chatkeep claude accounts ls shows them.",
                 ));
@@ -822,7 +834,8 @@ fn taken_elsewhere(config: &sync::Config, name: &str) -> Vec<(String, String)> {
 }
 
 fn needs_terminal(action: &str, name: &str) -> anyhow::Error {
-    ui::hinted(
+    ui::lacking(
+        ui::Lacking::Argument,
         format!("sync {action} {name} needs the accounts"),
         "Name them (a name, e-mail address or id each), or run this in a terminal to pick them from a list. chatkeep claude accounts ls shows them.",
     )

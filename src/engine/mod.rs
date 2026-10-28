@@ -13,7 +13,7 @@ pub mod queue;
 mod repath;
 mod session;
 mod sql;
-mod stats;
+pub mod stats;
 mod view;
 
 use anyhow::{Context, Result};
@@ -41,7 +41,7 @@ pub use chats::{
 };
 pub use db::touched_paths;
 pub use repath::{copy_paths, move_paths, replaced, save_unsaved};
-pub use view::{ListRow, short_hash, sort_rows};
+pub use view::{ListRow, short_hash, sort_rows, workspace_name};
 
 #[derive(Debug, Clone, Copy)]
 pub enum CursorRunningHint {
@@ -493,101 +493,216 @@ pub fn render_workspaces_noted(
     detail: Option<&str>,
     theme: Theme,
 ) -> Result<(String, Option<index::Note>)> {
-    if let Some(loaded) = index::load(rt)? {
-        let text = render_loaded(rt, &loaded, unsaved_only, detail, theme)?;
-        return Ok((text, loaded.note));
-    }
-    let text = render_live(rt, unsaved_only, detail, theme)?;
-    if rt.index.as_ref().is_some_and(|config| config.fresh) {
-        index::sync(rt)?;
-    }
-    Ok((text, None))
-}
-
-fn matches_spec(workspace: &Workspace, id: &str, wanted: &Path) -> bool {
-    workspace.id == id || workspace.path.as_deref() == Some(wanted)
-}
-
-fn render_loaded(
-    rt: &Runtime,
-    loaded: &index::Loaded,
-    unsaved_only: bool,
-    detail: Option<&str>,
-    theme: Theme,
-) -> Result<String> {
     let Some(id) = detail else {
+        let listing = workspace_rows_noted(rt, unsaved_only)?;
+        return Ok((view::render_list(theme, &listing.rows), listing.note));
+    };
+    let (details, note) = workspace_details_noted(rt, unsaved_only, id, false)?;
+    let text = details
+        .iter()
+        .map(|detail| view::render_detail(theme, &detail.row, &detail.headers()))
+        .collect::<Vec<_>>()
+        .join("\n");
+    Ok((text, note))
+}
+
+/// One workspace as `ls <id>` shows it: its row and every chat in it.
+#[derive(Debug, Clone)]
+pub struct Detail {
+    pub row: ListRow,
+    pub chats: Vec<facts::ChatFacts>,
+}
+
+impl Detail {
+    pub fn headers(&self) -> Vec<ComposerHeader> {
+        self.chats.iter().map(facts::ChatFacts::header).collect()
+    }
+}
+
+/// When a chat of each workspace last changed, by installation name and workspace id.
+pub type LastActive = HashMap<(String, String), i64>;
+
+/// Every workspace `ls` lists, when each was last active, and the "as of" note when the rows
+/// came from the index.
+pub struct Listing {
+    pub rows: Vec<ListRow>,
+    pub last_active: LastActive,
+    pub note: Option<index::Note>,
+}
+
+impl Listing {
+    /// The newest update of any chat (subagent chats included) of `row`'s workspace; a chat
+    /// Cursor recorded no update for counts from when it was created.
+    pub fn last_active(&self, row: &ListRow) -> Option<i64> {
+        self.last_active
+            .get(&(row.workspace.install.clone(), row.workspace.id.clone()))
+            .copied()
+    }
+}
+
+/// Note `at` as a moment workspace `id` of installation `install` was active.
+fn seen_active(found: &mut LastActive, install: &str, id: &str, at: Option<i64>) {
+    let Some(at) = at else {
+        return;
+    };
+    let slot = found
+        .entry((install.to_string(), id.to_string()))
+        .or_insert(at);
+    *slot = (*slot).max(at);
+}
+
+/// Every workspace `ls` lists, from the index when it can.
+pub fn workspace_rows_noted(rt: &Runtime, unsaved_only: bool) -> Result<Listing> {
+    if let Some(loaded) = index::load(rt)? {
+        let mut last_active = LastActive::new();
+        for (scoped, facts) in &loaded.installs {
+            for chat in &facts.chats {
+                seen_active(
+                    &mut last_active,
+                    &scoped.layout.name,
+                    &chat.workspace_id,
+                    chat.last_updated_at.or(chat.created_at),
+                );
+            }
+        }
         let mut rows: Vec<ListRow> = loaded
             .installs
             .iter()
             .flat_map(|(scoped, facts)| facts.list_rows(scoped, unsaved_only))
             .collect();
         sort_rows(&mut rows);
-        return Ok(view::render_list(theme, &rows));
+        return Ok(Listing {
+            rows,
+            last_active,
+            note: loaded.note,
+        });
+    }
+    let (rows, last_active) = {
+        let _spinner = ui::spinner("Scanning workspaces", rt.quiet);
+        listed_rows(rt, unsaved_only)?
     };
-    let wanted = rt.resolve_path(id);
-    let mut out = Vec::new();
-    for (scoped, facts) in &loaded.installs {
-        let Some(row) = facts
-            .list_rows(scoped, unsaved_only)
-            .into_iter()
-            .find(|row| matches_spec(&row.workspace, id, &wanted))
-        else {
-            continue;
-        };
-        let headers = facts.headers_of(&row.workspace.id);
-        out.push(view::render_detail(theme, &row, &headers));
-    }
-    if out.is_empty() {
-        anyhow::bail!("no workspace matches {id}");
-    }
-    Ok(out.join("\n"))
+    refresh_after_fresh(rt)?;
+    Ok(Listing {
+        rows,
+        last_active,
+        note: None,
+    })
 }
 
-fn render_live(
+/// The workspace `id` names in every installation in scope, with its chats, plus the "as of"
+/// note when they came from the index. A live read only reads each chat's usage when `usage`
+/// asks for it; the index always has it.
+pub fn workspace_details_noted(
     rt: &Runtime,
     unsaved_only: bool,
-    detail: Option<&str>,
-    theme: Theme,
-) -> Result<String> {
-    let _spinner = ui::spinner("Scanning workspaces", rt.quiet);
-    if let Some(id) = detail {
-        let wanted = rt.resolve_path(id);
-        let mut out = Vec::new();
-        for scoped in rt.scope() {
-            let mut workspaces = filtered_workspaces(&scoped, unsaved_only)?;
-            let Some(position) = workspaces
-                .iter()
-                .position(|workspace| matches_spec(workspace, id, &wanted))
+    id: &str,
+    usage: bool,
+) -> Result<(Vec<Detail>, Option<index::Note>)> {
+    let wanted = rt.resolve_path(id);
+    if let Some(loaded) = index::load(rt)? {
+        let mut found = Vec::new();
+        for (scoped, facts) in &loaded.installs {
+            let Some(row) = facts
+                .list_rows(scoped, unsaved_only)
+                .into_iter()
+                .find(|row| matches_spec(&row.workspace, id, &wanted))
             else {
                 continue;
             };
-            let workspace = workspaces.swap_remove(position);
-            let conn = open_global_ro(&scoped)?;
-            let headers = match &conn {
-                Some(conn) => db::headers(conn, &workspace.id)?,
-                None => Vec::new(),
-            };
-            let row = list_row(conn.as_ref(), workspace)?;
-            out.push(view::render_detail(theme, &row, &headers));
+            let chats = facts
+                .chats
+                .iter()
+                .filter(|chat| chat.workspace_id == row.workspace.id)
+                .cloned()
+                .collect();
+            found.push(Detail { row, chats });
         }
-        if out.is_empty() {
+        if found.is_empty() {
             anyhow::bail!("no workspace matches {id}");
         }
-        return Ok(out.join("\n"));
+        return Ok((found, loaded.note));
     }
-    Ok(view::render_list(theme, &list_rows(rt, unsaved_only)?))
+    let found = {
+        let _spinner = ui::spinner("Scanning workspaces", rt.quiet);
+        live_details(rt, unsaved_only, id, &wanted, usage)?
+    };
+    refresh_after_fresh(rt)?;
+    Ok((found, None))
+}
+
+fn live_details(
+    rt: &Runtime,
+    unsaved_only: bool,
+    id: &str,
+    wanted: &Path,
+    usage: bool,
+) -> Result<Vec<Detail>> {
+    let mut found = Vec::new();
+    for scoped in rt.scope() {
+        let mut workspaces = filtered_workspaces(&scoped, unsaved_only)?;
+        let Some(position) = workspaces
+            .iter()
+            .position(|workspace| matches_spec(workspace, id, wanted))
+        else {
+            continue;
+        };
+        let workspace = workspaces.swap_remove(position);
+        let conn = open_global_ro(&scoped)?;
+        let mut chats = Vec::new();
+        if let Some(conn) = &conn {
+            for header in db::headers(conn, &workspace.id)? {
+                let read = if usage {
+                    facts::read_usage(conn, &header.composer_id)?
+                } else {
+                    None
+                };
+                chats.push(facts::ChatFacts::new(&header, read));
+            }
+        }
+        let (row, _) = list_row(conn.as_ref(), workspace)?;
+        found.push(Detail { row, chats });
+    }
+    if found.is_empty() {
+        anyhow::bail!("no workspace matches {id}");
+    }
+    Ok(found)
+}
+
+/// After a `--fresh` read, bring the index up to date with what was read.
+fn refresh_after_fresh(rt: &Runtime) -> Result<()> {
+    if rt.index.as_ref().is_some_and(|config| config.fresh) {
+        index::sync(rt)?;
+    }
+    Ok(())
+}
+
+fn matches_spec(workspace: &Workspace, id: &str, wanted: &Path) -> bool {
+    workspace.id == id || workspace.path.as_deref() == Some(wanted)
 }
 
 pub fn list_rows(rt: &Runtime, unsaved_only: bool) -> Result<Vec<ListRow>> {
+    Ok(listed_rows(rt, unsaved_only)?.0)
+}
+
+/// `list_rows`, with when each workspace was last active, read from the same chat headers.
+fn listed_rows(rt: &Runtime, unsaved_only: bool) -> Result<(Vec<ListRow>, LastActive)> {
     let mut rows = Vec::new();
+    let mut last_active = LastActive::new();
     for scoped in rt.scope() {
         let conn = open_global_ro(&scoped)?;
         for workspace in filtered_workspaces(&scoped, unsaved_only)? {
-            rows.push(list_row(conn.as_ref(), workspace)?);
+            let (row, at) = list_row(conn.as_ref(), workspace)?;
+            seen_active(
+                &mut last_active,
+                &row.workspace.install,
+                &row.workspace.id,
+                at,
+            );
+            rows.push(row);
         }
     }
     sort_rows(&mut rows);
-    Ok(rows)
+    Ok((rows, last_active))
 }
 
 /// Installations in scope that hold `spec` as a workspace id, path, unsaved id, or chat id.
@@ -653,21 +768,30 @@ fn filtered_workspaces(rt: &Runtime, unsaved_only: bool) -> Result<Vec<Workspace
     Ok(workspaces)
 }
 
-fn list_row(conn: Option<&Connection>, workspace: Workspace) -> Result<ListRow> {
+/// One `ls` row, and the newest update of any of its chats (its creation, when Cursor recorded
+/// no update).
+fn list_row(conn: Option<&Connection>, workspace: Workspace) -> Result<(ListRow, Option<i64>)> {
     let headers = match conn {
         Some(conn) => db::headers(conn, &workspace.id)?,
         None => Vec::new(),
     };
     let subagents = headers.iter().filter(|header| header.is_subagent).count();
     let archived = headers.iter().filter(|header| header.is_archived).count();
+    let last_active = headers
+        .iter()
+        .filter_map(|header| header.last_updated_at.or(header.created_at))
+        .max();
     let size = fsops::dir_size(&workspace.dir).unwrap_or(0);
-    Ok(ListRow {
-        chats: headers.len().saturating_sub(subagents),
-        subagents,
-        archived,
-        size,
-        workspace,
-    })
+    Ok((
+        ListRow {
+            chats: headers.len().saturating_sub(subagents),
+            subagents,
+            archived,
+            size,
+            workspace,
+        },
+        last_active,
+    ))
 }
 
 pub fn show_history(rt: &Runtime) -> Result<String> {
@@ -698,18 +822,21 @@ pub fn render_stats(rt: &Runtime, theme: Theme) -> Result<String> {
 
 /// `stats` output, plus the "as of" note when it came from the index.
 pub fn render_stats_noted(rt: &Runtime, theme: Theme) -> Result<(String, Option<index::Note>)> {
+    let (found, note) = stats_noted(rt)?;
+    Ok((stats::render_stats(theme, &found), note))
+}
+
+/// What `stats` counts, plus the "as of" note when it came from the index.
+pub fn stats_noted(rt: &Runtime) -> Result<(stats::Stats, Option<index::Note>)> {
     if let Some(loaded) = index::load(rt)? {
-        let text = stats::render_stats(theme, &stats::gather(&loaded.installs));
-        return Ok((text, loaded.note));
+        return Ok((stats::gather(&loaded.installs), loaded.note));
     }
-    let text = {
+    let found = {
         let _spinner = ui::spinner("Reading chat usage", rt.quiet);
-        stats::render_stats(theme, &stats::collect(rt)?)
+        stats::collect(rt)?
     };
-    if rt.index.as_ref().is_some_and(|config| config.fresh) {
-        index::sync(rt)?;
-    }
-    Ok((text, None))
+    refresh_after_fresh(rt)?;
+    Ok((found, None))
 }
 
 pub fn record_history(

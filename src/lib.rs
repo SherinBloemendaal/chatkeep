@@ -14,6 +14,7 @@ pub mod cli;
 pub mod config;
 pub mod cursor;
 pub mod engine;
+pub mod json;
 pub mod queue_cmd;
 pub mod ui;
 pub mod uninstall;

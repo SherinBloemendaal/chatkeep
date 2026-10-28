@@ -5,7 +5,7 @@ use std::fmt;
 use std::io::{self, IsTerminal};
 
 use super::signal::PromptGuard;
-use super::{Theme, hinted};
+use super::{Lacking, Theme, lacking};
 
 struct ConfirmTheme(Theme);
 
@@ -87,7 +87,8 @@ pub fn picker_label(lead: &str, path: &str, total: usize, ellipsis: &str) -> Str
 
 fn no_terminal(prompt: &str) -> anyhow::Error {
     let prompt = prompt.trim_end_matches(['?', ':']);
-    hinted(
+    lacking(
+        Lacking::Argument,
         format!("cannot ask \"{prompt}\" without a terminal"),
         "Pass it on the command line, or run the command in a terminal.",
     )
@@ -103,7 +104,11 @@ pub fn confirm(prompt: &str, yes: bool, interactive: bool) -> anyhow::Result<boo
         return Ok(true);
     }
     if !interactive {
-        return Err(hinted(prompt, "Re-run with -y to continue."));
+        return Err(lacking(
+            Lacking::Confirmation,
+            prompt,
+            "Re-run with -y to continue.",
+        ));
     }
     let theme = ConfirmTheme(Theme::stderr());
     let _guard = PromptGuard::new();

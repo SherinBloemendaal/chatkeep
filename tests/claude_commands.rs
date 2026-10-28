@@ -1107,3 +1107,62 @@ fn the_index_stays_off_when_asked() {
         Some("Work")
     );
 }
+
+/// The stored command of a queue entry whose Claude Code part ran before Cursor opened: only
+/// Cursor's part is left, and `--tool cursor` stands before the `--` the command was given with.
+#[test]
+fn a_half_done_entry_keeps_its_positionals_after_the_double_dash() {
+    let home = Home::new();
+    let old = home.root.join("old");
+    let new = home.folder("new");
+    home.session(&old, SESSION);
+    let (cursor, closed) = with_cursor(&home, &old, false);
+    let state = cursor.layout.chatkeep_home.clone();
+    cli(
+        &closed,
+        &[
+            "queue",
+            "add",
+            "--",
+            "mv",
+            "-y",
+            "--",
+            &text(&old),
+            &text(&new),
+        ],
+    )
+    .unwrap();
+
+    // Closed when the queue and the entry are checked, open by the time Cursor's part runs.
+    let mut rt = common::runtime(&cursor.layout, false, false);
+    rt.cwd = home.root.clone();
+    rt.probe = std::sync::Arc::new(common::OpensAfter::new(2));
+    let opening = Tools::new(Some(rt), Some(home.rt.clone()));
+    let err = cli(&opening, &["queue", "execute", "-y"]).unwrap_err();
+    assert!(
+        err.downcast_ref::<chatkeep::engine::CursorRunning>()
+            .is_some(),
+        "{err:#}"
+    );
+    assert!(home.project_dir(&new).exists());
+    let entry = &queue::load(&state).unwrap()[0];
+    assert_eq!(
+        entry.argv,
+        [
+            "mv",
+            "-y",
+            "--tool",
+            "cursor",
+            "--",
+            &text(&old),
+            &text(&new)
+        ]
+    );
+    match queue_cmd::parse_command(&entry.argv).unwrap() {
+        Command::Mv(args) => {
+            assert_eq!(args.common.tool, Some(chatkeep::cli::Tool::Cursor));
+            assert_eq!(args.to, Some(text(&new)));
+        }
+        other => panic!("expected mv, got {other:?}"),
+    }
+}

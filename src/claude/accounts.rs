@@ -90,14 +90,15 @@ pub fn listings(layout: &Layout) -> Result<Vec<Listing>> {
 }
 
 /// Session ids that still have a transcript on this machine.
-fn known_sessions(rt: &Runtime) -> Result<HashSet<String>> {
+pub fn known_sessions(rt: &Runtime) -> Result<HashSet<String>> {
     Ok(store::discover(rt)?
         .into_iter()
         .flat_map(|project| project.sessions.into_iter().map(|session| session.id))
         .collect())
 }
 
-fn on_disk(listing: &Listing, known: &HashSet<String>) -> usize {
+/// How many of the chats `listing` lists still have their transcript on this machine.
+pub fn on_disk(listing: &Listing, known: &HashSet<String>) -> usize {
     listing
         .sessions
         .iter()
