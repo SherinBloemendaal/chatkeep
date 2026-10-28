@@ -120,6 +120,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -151,22 +153,15 @@ jobs:
       - name: Build DMG
         run: VERSION="${GITHUB_REF_NAME#v}" macos/scripts/make-dmg.sh
 
-      # The app's updater only installs a DMG signed with this key; the feed tells it where the
-      # DMG is. Sparkle's tools come from its release, pinned by checksum.
+      # The app's updater only installs a DMG and a feed signed with this key, whose only copy
+      # outside CI is in 1Password. sign_update comes from the Sparkle package swift build fetched.
       - name: Sign the DMG and write the update feed
         env:
           SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
-          SPARKLE_VERSION: "2.10.0"
-          SPARKLE_SHA256: c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c
         run: |
           set -euo pipefail
-          tools="${RUNNER_TEMP}/sparkle"
-          mkdir -p "${tools}"
-          curl -fsSL -o "${tools}/Sparkle.tar.xz" \
-            "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
-          echo "${SPARKLE_SHA256}  ${tools}/Sparkle.tar.xz" | shasum -a 256 -c -
-          tar -xf "${tools}/Sparkle.tar.xz" -C "${tools}" ./bin/sign_update
-          SIGN_UPDATE="${tools}/bin/sign_update" macos/scripts/make-appcast.sh
+          [ -n "${SPARKLE_ED_PRIVATE_KEY}" ] || { echo "SPARKLE_ED_PRIVATE_KEY is not set" >&2; exit 1; }
+          macos/scripts/make-appcast.sh
           cat macos/build/appcast.xml
 
       - name: Upload DMG
