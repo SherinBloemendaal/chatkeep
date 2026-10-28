@@ -75,6 +75,10 @@ final class Loadable<Value> {
     private(set) var isLoading = false
     private var task: Task<Void, Never>?
 
+    // Swift 6.3 (Xcode 26.6) crashes while optimizing the implicit deinit of this generic
+    // main-actor class in a release build. Writing one out avoids it.
+    deinit {}
+
     var hasLoaded: Bool { value != nil }
 
     /// Runs `command` and keeps what `transform` makes of the answer; `nil` counts as an error.
