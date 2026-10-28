@@ -1,22 +1,25 @@
 import ChatkeepKit
 import SwiftUI
 
+/// Projects on the left, the selected project and its chats on the right, as in Mail.
+///
+/// Both panes are SwiftUI views in an `HStack` with flexible frames, not an AppKit split view: a
+/// split view hands its panes their ideal width, which left the table as a narrow centered column.
+/// Here the list takes between 420 and 720 points and the chats take the rest, so together they
+/// always fill the detail area, from the smallest window to full screen.
 struct ProjectsView: View {
     @Bindable var model: ProjectsModel
     @Environment(AppModel.self) private var app
 
     var body: some View {
-        VSplitView {
+        HStack(spacing: 0) {
             projectTable
-                .frame(minHeight: 200, idealHeight: 380)
-            ChatList(model: model)
-                .frame(minHeight: 160, idealHeight: 260)
+                .frame(minWidth: 420, idealWidth: 560, maxWidth: 720, maxHeight: .infinity)
+            Divider()
+            ProjectDetailPane(model: model)
+                .frame(minWidth: 240, maxWidth: .infinity, maxHeight: .infinity)
         }
         .searchable(text: $model.search, placement: .toolbar, prompt: "Name or path")
-        .inspector(isPresented: $model.showsInspector) {
-            ProjectInspector(model: model)
-                .inspectorColumnWidth(min: 260, ideal: 300, max: 420)
-        }
         .toolbar { toolbar }
         .navigationSubtitle(subtitle)
         .task {
@@ -29,52 +32,35 @@ struct ProjectsView: View {
     @ViewBuilder
     private var projectTable: some View {
         Table(of: Project.self, selection: $model.selection, sortOrder: $model.sortOrder) {
-            TableColumn("Name", value: \.name) { project in
-                HStack(spacing: 6) {
-                    Image(systemName: project.isUnsaved ? "macwindow.badge.plus" : "folder")
-                        .foregroundStyle(Theme.color(for: project.tool))
-                    Text(project.name)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    if project.destinationMissing {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(Theme.warning)
-                            .help("The project folder is gone. Move its chats to where the folder is now.")
-                    }
-                }
+            TableColumn("Project", value: \.displayName) { project in
+                ProjectNameCell(project: project)
             }
-            .width(min: 200, ideal: 300)
-            TableColumn("Tool") { project in
-                ToolTag(tool: project.tool)
+            .width(min: 160, ideal: 280)
+            TableColumn("") { project in
+                ToolIcon(tool: project.tool)
             }
-            .width(110)
+            .width(22)
             TableColumn("Chats", value: \.chats) { project in
-                Text(Format.count(project.chats)).monospacedDigit()
+                Text(Format.count(project.chats))
+                    .monospacedDigit()
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                     .help("\(project.subagents) agent chats not counted")
             }
-            .width(60)
+            .width(min: 44, ideal: 52, max: 70)
             TableColumn("Size", value: \.sizeBytes) { project in
-                Text(Format.bytes(project.sizeBytes)).monospacedDigit()
+                Text(Format.bytes(project.sizeBytes))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .width(80)
+            .width(min: 60, ideal: 72, max: 96)
             TableColumn("Last Active", value: \.lastActiveOrNever) { project in
                 Text(project.lastActive.map { Format.relative($0) } ?? "No chats")
                     .foregroundStyle(project.lastActive == nil ? .tertiary : .secondary)
+                    .lineLimit(1)
                     .help(project.lastActive.map { Format.date($0) } ?? "")
             }
-            .width(min: 90, ideal: 120)
-            TableColumn("Path", value: \.pathText) { project in
-                Text(project.path.map(Format.path) ?? "None")
-                    .foregroundStyle(project.path == nil ? .tertiary : .secondary)
-                    .lineLimit(1)
-                    .truncationMode(.head)
-            }
-            .width(min: 160, ideal: 280)
-            TableColumn("Installation") { project in
-                Text(project.profileLabel ?? "")
-                    .foregroundStyle(.secondary)
-            }
-            .width(min: 60, ideal: 90)
+            .width(min: 80, ideal: 104, max: 150)
         } rows: {
             ForEach(model.visible) { project in
                 TableRow(project)
@@ -122,13 +108,13 @@ struct ProjectsView: View {
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
-        ToolbarItem(placement: .navigation) {
+        ToolbarItem(placement: .principal) {
             Picker("Show", selection: $model.filter) {
                 ForEach(ProjectsModel.Filter.allCases) { filter in
-                    Text(filter.title).tag(filter)
+                    Text(filter.shortTitle).tag(filter)
                 }
             }
-            .pickerStyle(.menu)
+            .pickerStyle(.segmented)
             .fixedSize()
             .help("Show the projects of one tool, or Cursor windows that were never saved to a folder")
         }
@@ -145,6 +131,9 @@ struct ProjectsView: View {
                 model.load()
             }
             .help("Read the projects again (⌘R). Hold the menu for Read Fresh.")
+        }
+        ToolbarGap()
+        ToolbarItem(placement: .primaryAction) {
             Menu {
                 if let project = model.selectedProject {
                     ProjectActions(project: project)
@@ -156,9 +145,35 @@ struct ProjectsView: View {
                 Label("Actions", systemImage: "ellipsis.circle")
             }
             .help("Move, copy, split, combine, export or remove chats")
-            Button("Details", systemImage: "sidebar.trailing") { model.showsInspector.toggle() }
-                .help("Show or hide the project details")
         }
+    }
+}
+
+/// The folder name first, the whole path below it, cut at the start so the end stays readable.
+struct ProjectNameCell: View {
+    let project: Project
+
+    var body: some View {
+        HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(project.displayName)
+                    .fontWeight(.medium)
+                    .lineLimit(1)
+                Text(project.path.map(Format.path) ?? "No folder")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.head)
+            }
+            if project.destinationMissing {
+                Spacer(minLength: 0)
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Theme.warning)
+                    .help("The project folder is gone. Move its chats to where the folder is now.")
+            }
+        }
+        .padding(.vertical, 2)
+        .help(project.path ?? project.name)
     }
 }
 
@@ -175,6 +190,7 @@ struct ProjectActions: View {
             Button("Show Folder in Finder", systemImage: "folder") { Reveal.inFinder(path) }
         }
         Button("Show Chat Storage in Finder", systemImage: "externaldrive") { Reveal.inFinder(project.storageDir) }
+        Button("Copy Path", systemImage: "doc.on.clipboard") { Reveal.copy(project.path ?? project.projectID) }
         if project.tool.isKnown {
             Divider()
             Button("Remove Chats…", systemImage: "trash", role: .destructive) { app.present(.remove(project)) }
@@ -199,29 +215,122 @@ struct ProjectActions: View {
     }
 }
 
+// MARK: - Selected project
+
+/// The right pane: the project's header with its numbers and actions, then its chats.
+struct ProjectDetailPane: View {
+    let model: ProjectsModel
+
+    var body: some View {
+        if let project = model.selectedProject {
+            VStack(spacing: 0) {
+                ProjectHeader(project: project, model: model)
+                Divider()
+                ChatList(model: model, project: project)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        } else {
+            ContentUnavailableView(
+                "No Project Selected",
+                systemImage: "bubble.left.and.bubble.right",
+                description: Text("Select a project to see its chats. Drop a folder on a project to move or copy its chats there.")
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+}
+
+struct ProjectHeader: View {
+    let project: Project
+    let model: ProjectsModel
+    @Environment(AppModel.self) private var app
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(project.displayName)
+                .font(.title2.weight(.semibold))
+                .lineLimit(2)
+            Text(project.path.map(Format.path) ?? "No folder of its own")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .truncationMode(.head)
+                .textSelection(.enabled)
+                .help(project.path ?? "")
+            HStack(spacing: 6) {
+                ToolTag(tool: project.tool)
+                Pill(text: Format.kind(project.kind), color: .secondary)
+                if let label = project.profileLabel {
+                    Pill(text: label, color: .secondary, systemImage: "externaldrive")
+                        .help("Cursor installation")
+                }
+            }
+            Text(facts)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if project.destinationMissing {
+                Label("The project folder is gone. Use Move Chats to point them at its new place.", systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Theme.warning)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if project.tool.isKnown {
+                actions
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The buttons when they fit on one line, else one menu.
+    private var actions: some View {
+        ViewThatFits(in: .horizontal) {
+            GlassGroup {
+                HStack(spacing: 8) {
+                    if project.isUnsaved {
+                        Button("Save to Folder…") { app.present(.saveUnsaved(project)) }
+                            .primaryActionStyle()
+                    }
+                    Button("Move…") { app.present(.move(project)) }
+                        .secondaryActionStyle()
+                    Button("Copy…") { app.present(.copy(project)) }
+                        .secondaryActionStyle()
+                    Button("Export…") { app.present(.export(project)) }
+                        .secondaryActionStyle()
+                    moreMenu
+                }
+            }
+            moreMenu
+        }
+    }
+
+    private var moreMenu: some View {
+        Menu("More") { ProjectActions(project: project) }
+            .fixedSize()
+    }
+
+    private var facts: String {
+        var parts = ["\(Format.count(project.chats)) chats"]
+        if project.subagents > 0 { parts.append("\(Format.count(project.subagents)) agent chats") }
+        if let archived = project.archived, archived > 0 { parts.append("\(Format.count(archived)) archived") }
+        parts.append(Format.bytes(project.sizeBytes))
+        if let memory = project.memoryFiles, memory > 0 { parts.append("\(memory) memory files") }
+        if let date = project.lastActive ?? model.detail.value?.lastActive {
+            parts.append("last active \(Format.relative(date))")
+        }
+        return parts.joined(separator: " · ")
+    }
+}
+
 // MARK: - Chats
 
 struct ChatList: View {
-    @Bindable var model: ProjectsModel
+    let model: ProjectsModel
+    let project: Project
     @State private var selection: Chat.ID?
     @Environment(AppModel.self) private var app
 
     var body: some View {
-        Group {
-            if let project = model.selectedProject {
-                chats(of: project)
-            } else {
-                ContentUnavailableView(
-                    "No Project Selected",
-                    systemImage: "bubble.left.and.bubble.right",
-                    description: Text("Select a project to see its chats. Drop a folder on a project to move or copy its chats there.")
-                )
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func chats(of project: Project) -> some View {
         let chats = model.detail.value?.chats ?? []
         Table(chats, selection: $selection) {
             TableColumn("Title") { chat in
@@ -236,25 +345,37 @@ struct ChatList: View {
                         Pill(text: "Archived", color: .secondary, systemImage: "archivebox")
                     }
                 }
+                .help(chat.title ?? "Untitled")
             }
-            .width(min: 200, ideal: 340)
+            .width(min: 160, ideal: 320)
             TableColumn("Updated") { chat in
-                Text(Format.date(chat.updatedAt)).foregroundStyle(.secondary)
+                Text(Format.relative(chat.updatedAt))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .help(Format.date(chat.updatedAt))
             }
-            .width(min: 110, ideal: 140)
+            .width(min: 80, ideal: 110, max: 160)
             TableColumn("Model") { chat in
-                Text(chat.model ?? "").foregroundStyle(.secondary)
+                Text(chat.model ?? "").foregroundStyle(.secondary).lineLimit(1)
             }
-            .width(min: 90, ideal: 140)
+            .width(min: 70, ideal: 120, max: 200)
             TableColumn("Tokens") { chat in
-                Text(tokens(chat)).monospacedDigit().foregroundStyle(.secondary)
+                Text(tokens(chat))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                     .help(tokenHelp(chat))
             }
-            .width(min: 60, ideal: 80)
-            TableColumn("Size") { chat in
-                Text(chat.sizeBytes.map(Format.bytes) ?? "").monospacedDigit().foregroundStyle(.secondary)
+            .width(min: 50, ideal: 64, max: 90)
+            if project.tool == .claude {
+                TableColumn("Size") { chat in
+                    Text(chat.sizeBytes.map(Format.bytes) ?? "")
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .width(min: 50, ideal: 70, max: 96)
             }
-            .width(min: 50, ideal: 70)
         }
         .contextMenu(forSelectionType: Chat.ID.self) { ids in
             if let id = ids.first, let chat = chats.first(where: { $0.id == id }) {
@@ -262,8 +383,10 @@ struct ChatList: View {
                 if let transcript = chat.transcript {
                     Button("Show Transcript in Finder") { Reveal.inFinder(transcript) }
                 }
-                Divider()
-                Button("Remove Chat…", role: .destructive) { app.present(.remove(project, chat: chat)) }
+                if project.tool.isKnown {
+                    Divider()
+                    Button("Remove Chat…", role: .destructive) { app.present(.remove(project, chat: chat)) }
+                }
             }
         }
         .overlay {
@@ -291,80 +414,5 @@ struct ChatList: View {
         if let read = tokens.cacheRead { lines.append("Cache read: \(Format.tokens(read))") }
         if let cost = chat.costCents, cost > 0 { lines.append("Cost: \(Format.money(cents: Int64(cost)))") }
         return lines.joined(separator: "\n")
-    }
-}
-
-// MARK: - Details
-
-struct ProjectInspector: View {
-    let model: ProjectsModel
-    @Environment(AppModel.self) private var app
-
-    var body: some View {
-        if let project = model.selectedProject {
-            Form {
-                Section {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(project.name)
-                            .font(.headline)
-                            .lineLimit(3)
-                            .truncationMode(.middle)
-                        HStack {
-                            ToolTag(tool: project.tool)
-                            Pill(text: Format.kind(project.kind), color: .secondary)
-                        }
-                    }
-                    if project.destinationMissing {
-                        Label("The project folder is gone. Use Move Chats to point them at its new place.", systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(Theme.warning)
-                    }
-                }
-                Section("Chats") {
-                    DetailRow(label: "Chats", value: Format.count(project.chats))
-                    DetailRow(label: "Agent chats", value: Format.count(project.subagents))
-                    if let archived = project.archived {
-                        DetailRow(label: "Archived", value: Format.count(archived))
-                    }
-                    if let memory = project.memoryFiles {
-                        DetailRow(label: "Memory files", value: Format.count(memory))
-                    }
-                    DetailRow(label: "Size", value: Format.bytes(project.sizeBytes))
-                    DetailRow(label: "Last active", value: lastActive)
-                }
-                Section("Where") {
-                    DetailRow(label: "Folder", value: project.path.map(Format.path) ?? "None")
-                    DetailRow(label: "Chat storage", value: Format.path(project.storageDir))
-                    if let label = project.profileLabel {
-                        DetailRow(label: "Installation", value: label)
-                    }
-                    DetailRow(label: "ID", value: project.projectID, monospaced: true)
-                }
-                if project.tool.isKnown {
-                    actionSection(project)
-                }
-            }
-            .formStyle(.grouped)
-        } else {
-            ContentUnavailableView("No Project Selected", systemImage: "info.circle")
-        }
-    }
-
-    private func actionSection(_ project: Project) -> some View {
-        Section {
-            HStack {
-                Button("Move…") { app.present(.move(project)) }
-                Button("Copy…") { app.present(.copy(project)) }
-                Button("Export…") { app.present(.export(project)) }
-            }
-            if project.isUnsaved {
-                Button("Save to Folder…") { app.present(.saveUnsaved(project)) }
-            }
-        }
-    }
-
-    private var lastActive: String {
-        guard let project = model.selectedProject else { return "Unknown" }
-        guard let date = project.lastActive ?? model.detail.value?.lastActive else { return "No chats" }
-        return Format.date(date)
     }
 }

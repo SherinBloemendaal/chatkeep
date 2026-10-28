@@ -96,10 +96,13 @@ struct MaintenanceView: View {
             scanResult
             HStack {
                 Button("Check for Changes") { model.checkCursorIndex() }
+                    .secondaryActionStyle()
                     .help("See what changed in Cursor since the last update. Reads nothing again.")
                 Button("Update Now") { model.scanCursorIndex(full: false) { model.load() } }
+                    .primaryActionStyle()
                     .help("Read again only what changed in Cursor")
                 Button("Rebuild") { model.scanCursorIndex(full: true) { model.load() } }
+                    .secondaryActionStyle()
                     .help("Throw the index away and read all of Cursor again. Slow.")
                 Spacer()
                 if model.scan.isLoading || model.check.isLoading {

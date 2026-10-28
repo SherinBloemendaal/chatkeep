@@ -21,37 +21,63 @@ struct WriteSheet<Payload: ReportPayload, Fields: View, Extra: View>: View {
         flow.previewResponse != nil && flow.previewed != command
     }
 
+    /// The fields and the outcome share one scrolling form, so no field is ever squeezed out of
+    /// sight by a long preview; the title and the buttons stay put above and below it.
     var body: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(.title2.weight(.semibold))
-                Text(summary).foregroundStyle(.secondary)
+                Text(summary)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding([.horizontal, .top], 20)
-            .padding(.bottom, 8)
+            .padding(.bottom, 4)
 
-            if Fields.self != EmptyView.self {
+            ScrollViewReader { proxy in
                 Form {
-                    fields()
+                    Group {
+                        fields()
+                    }
+                    .disabled(flow.isBusy || flow.isFinished)
+                    Section {
+                        outcome
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .id(Self.outcomeID)
                 }
                 .formStyle(.grouped)
-                .disabled(flow.isBusy || flow.isFinished)
-                .frame(minHeight: 120)
+                .onChange(of: stageName) {
+                    withAnimation(.smooth) { proxy.scrollTo(Self.outcomeID, anchor: .top) }
+                }
             }
+            .frame(maxHeight: .infinity)
 
-            Divider()
-            outcome
-                .frame(maxWidth: .infinity, minHeight: 170, maxHeight: .infinity, alignment: .topLeading)
-
-            Divider()
             buttons
-                .padding(16)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
         }
-        .frame(minWidth: 620, idealWidth: 680, minHeight: 600, idealHeight: 700)
+        .frame(minWidth: 560, idealWidth: 640, maxWidth: .infinity, minHeight: 440, idealHeight: 640, maxHeight: .infinity)
         .interactiveDismissDisabled(flow.isBusy)
         .onAppear {
             if previewAutomatically, let command { flow.preview(command, with: app.runner) }
+        }
+    }
+
+    private static var outcomeID: String { "outcome" }
+
+    /// Which stage the flow is in, without its data, to follow changes.
+    private var stageName: String {
+        switch flow.stage {
+        case .editing: "editing"
+        case .previewing: "previewing"
+        case .previewed: "previewed"
+        case .applying: "applying"
+        case .applied: "applied"
+        case .failed: "failed"
+        case .queueing: "queueing"
+        case .queued: "queued"
         }
     }
 
@@ -59,33 +85,28 @@ struct WriteSheet<Payload: ReportPayload, Fields: View, Extra: View>: View {
     private var outcome: some View {
         switch flow.stage {
         case .editing:
-            hint(command == nil ? "Fill in the fields above, then choose Preview." : "Choose Preview to see what will change. Nothing changes yet.")
+            hint(Fields.self == EmptyView.self
+                ? "Choose Preview to see what will change. Nothing changes yet."
+                : (command == nil ? "Fill in the fields above, then choose Preview." : "Choose Preview to see what will change. Nothing changes yet."))
         case .previewing:
-            LoadingView(text: "Checking what would change…") { flow.stopPreview() }
+            InlineProgress(text: "Checking what would change…") { flow.stopPreview() }
         case .previewed(let response):
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    if isStale {
-                        Label("The settings changed since this preview. Preview again before you apply.", systemImage: "arrow.triangle.2.circlepath")
-                            .foregroundStyle(Theme.warning)
-                    }
-                    ReportList(response: response, heading: "Preview: nothing has changed yet")
-                    extra(response)
+            VStack(alignment: .leading, spacing: 14) {
+                if isStale {
+                    Label("The settings changed since this preview. Preview again before you apply.", systemImage: "arrow.triangle.2.circlepath")
+                        .foregroundStyle(Theme.warning)
                 }
-                .padding(20)
+                ReportList(response: response, heading: "Preview: nothing has changed yet")
+                extra(response)
             }
         case .applying:
-            LoadingView(text: "Making the changes… Keep Cursor and Claude Code closed until this is done.")
+            InlineProgress(text: "Making the changes… Keep Cursor and Claude Code closed until this is done.")
         case .applied(let response):
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    ReportList(response: response, heading: "Done")
-                    extra(response)
-                }
-                .padding(20)
+            VStack(alignment: .leading, spacing: 14) {
+                ReportList(response: response, heading: "Done")
+                extra(response)
             }
         case .failed(let error, let whilePreviewing):
-            ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     ErrorBanner(error: error)
                     if error.kind == .toolRunning {
@@ -104,10 +125,8 @@ struct WriteSheet<Payload: ReportPayload, Fields: View, Extra: View>: View {
                         extra(partial)
                     }
                 }
-                .padding(20)
-            }
         case .queueing:
-            LoadingView(text: "Adding to the queue…")
+            InlineProgress(text: "Adding to the queue…")
         case .queued(let entry):
             VStack(alignment: .leading, spacing: 8) {
                 Label("Added to the queue", systemImage: "tray.and.arrow.down.fill")
@@ -120,43 +139,53 @@ struct WriteSheet<Payload: ReportPayload, Fields: View, Extra: View>: View {
                     Label(warning, systemImage: "exclamationmark.triangle").foregroundStyle(Theme.warning)
                 }
             }
-            .padding(20)
         }
     }
 
+    /// Glass buttons: the next step is prominent teal (Preview until there is a fresh preview,
+    /// then Apply; Add to Queue when a tool blocked the change), the rest plain glass.
     @ViewBuilder
     private var buttons: some View {
-        HStack {
-            if case .failed = flow.stage {
-                Button("Back") { flow.reset() }
-                    .help("Change the fields and try again")
-            }
-            Spacer()
-            if flow.isFinished {
-                Button("Done") { dismiss() }
-                    .keyboardShortcut(.defaultAction)
-            } else {
-                Button("Cancel", role: .cancel) { dismiss() }
-                    .keyboardShortcut(.cancelAction)
-                    .disabled(flow.isBusy)
-                if let queueArguments {
-                    Button("Add to Queue", systemImage: "tray.and.arrow.down") {
-                        flow.addToQueue(queueArguments, with: app.runner) { app.dataChanged() }
+        GlassGroup(spacing: 8) {
+            HStack(spacing: 8) {
+                if case .failed = flow.stage {
+                    Button("Back") { flow.reset() }
+                        .secondaryActionStyle()
+                        .help("Change the fields and try again")
+                }
+                Spacer(minLength: 0)
+                if flow.isFinished {
+                    Button("Done") { dismiss() }
+                        .primaryActionStyle()
+                        .keyboardShortcut(.defaultAction)
+                } else {
+                    Button("Cancel", role: .cancel) { dismiss() }
+                        .secondaryActionStyle()
+                        .keyboardShortcut(.cancelAction)
+                        .disabled(flow.isBusy)
+                    if let queueArguments {
+                        Button("Add to Queue", systemImage: "tray.and.arrow.down") {
+                            flow.addToQueue(queueArguments, with: app.runner) { app.dataChanged() }
+                        }
+                        .primaryActionStyle()
+                        .help("Store this change and run it later from the Queue, once Cursor and Claude Code are closed")
                     }
-                    .help("Store this change and run it later from the Queue, once Cursor and Claude Code are closed")
+                    Button("Preview") {
+                        if let command { flow.preview(command, with: app.runner) }
+                    }
+                    .actionStyle(prominent: !canApply && queueArguments == nil)
+                    .disabled(command == nil || flow.isBusy)
+                    .keyboardShortcut(canApply ? nil : .defaultAction)
+                    Button(applyLabel) {
+                        flow.apply(with: app.runner) { app.dataChanged() }
+                    }
+                    .actionStyle(prominent: canApply)
+                    .disabled(!canApply)
+                    .keyboardShortcut(canApply ? .defaultAction : nil)
+                    .help("Make the changes shown in the preview")
                 }
-                Button("Preview") {
-                    if let command { flow.preview(command, with: app.runner) }
-                }
-                .disabled(command == nil || flow.isBusy)
-                .keyboardShortcut(canApply ? nil : .defaultAction)
-                Button(applyLabel) {
-                    flow.apply(with: app.runner) { app.dataChanged() }
-                }
-                .disabled(!canApply)
-                .keyboardShortcut(canApply ? .defaultAction : nil)
-                .help("Make the changes shown in the preview")
             }
+            .controlSize(.large)
         }
     }
 
@@ -185,7 +214,6 @@ struct WriteSheet<Payload: ReportPayload, Fields: View, Extra: View>: View {
     private func hint(_ text: String) -> some View {
         Text(text)
             .foregroundStyle(.secondary)
-            .padding(20)
     }
 }
 

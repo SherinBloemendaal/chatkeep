@@ -221,7 +221,9 @@ struct AccountsView: View {
                         Text("\(profile.accounts.count) accounts").foregroundStyle(.secondary)
                         Spacer()
                         Button("Sync Now…") { app.present(.syncNow(profile: profile.name)) }
+                            .primaryActionStyle()
                         Button("Add Accounts…") { app.present(.editSyncProfile(name: profile.name, adding: true)) }
+                            .secondaryActionStyle()
                         Menu("More") {
                             Button("Choose Accounts Again…") { app.present(.editSyncProfile(name: profile.name, adding: false)) }
                             Button("Remove Profile…", role: .destructive) {
@@ -230,7 +232,7 @@ struct AccountsView: View {
                         }
                         .fixedSize()
                     }
-                    .buttonStyle(.borderless)
+                    .controlSize(.small)
                 }
             }
         }
@@ -244,6 +246,7 @@ struct AccountsView: View {
                     Text("A sync profile keeps the chat lists of several accounts the same, so every account shows every chat.")
                 } actions: {
                     Button("New Sync Profile…") { app.present(.editSyncProfile(name: nil, adding: false)) }
+                        .primaryActionStyle()
                 }
             }
         }
@@ -260,8 +263,11 @@ struct AccountsView: View {
             .pickerStyle(.segmented)
             .fixedSize()
         }
-        ToolbarItemGroup(placement: .primaryAction) {
+        ToolbarItem(placement: .primaryAction) {
             AutoSyncToggle(model: model)
+        }
+        ToolbarGap()
+        ToolbarItemGroup(placement: .primaryAction) {
             switch model.tab {
             case .accounts:
                 Button("Name", systemImage: "pencil") {
@@ -282,6 +288,9 @@ struct AccountsView: View {
             case .log:
                 EmptyView()
             }
+        }
+        ToolbarGap()
+        ToolbarItem(placement: .primaryAction) {
             Button("Refresh", systemImage: "arrow.clockwise") { model.loadAll() }
                 .help("Read accounts, profiles and the log again")
         }

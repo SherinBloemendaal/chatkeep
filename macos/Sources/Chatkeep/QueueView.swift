@@ -22,7 +22,8 @@ final class QueueModel {
 
 struct QueueView: View {
     @Bindable var model: QueueModel
-    @State private var showsDetails = true
+    /// Closed at first so the table has the full width; it opens when an entry is selected.
+    @State private var showsDetails = false
     @Environment(AppModel.self) private var app
 
     var body: some View {
@@ -34,7 +35,7 @@ struct QueueView: View {
             TableColumn("Status") { entry in
                 Pill(text: Self.label(entry), color: Self.color(entry.status), systemImage: Self.symbol(entry.status))
             }
-            .width(min: 90, ideal: 110)
+            .width(min: 84, ideal: 104, max: 140)
             TableColumn("Command") { entry in
                 Text(entry.command)
                     .font(.callout.monospaced())
@@ -42,15 +43,26 @@ struct QueueView: View {
                     .truncationMode(.middle)
                     .help(entry.command)
             }
-            .width(min: 240, ideal: 420)
+            .width(min: 160, ideal: 420)
             TableColumn("Tool") { entry in
-                if let tool = entry.tool { ToolTag(tool: tool) } else { Text("Decided when it runs").foregroundStyle(.tertiary) }
+                if let tool = entry.tool {
+                    HStack(spacing: 4) {
+                        ToolIcon(tool: tool)
+                        Text(tool.label).lineLimit(1)
+                    }
+                } else {
+                    Text("Either").foregroundStyle(.tertiary)
+                        .help("chatkeep decides when it runs which tools this change needs")
+                }
             }
-            .width(min: 90, ideal: 130)
+            .width(min: 70, ideal: 120, max: 160)
             TableColumn("Added") { entry in
-                Text(Format.date(entry.createdAt)).foregroundStyle(.secondary)
+                Text(Format.relative(entry.createdAt))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .help(Format.date(entry.createdAt))
             }
-            .width(min: 110, ideal: 140)
+            .width(min: 80, ideal: 120, max: 170)
         }
         .contextMenu(forSelectionType: QueueEntry.ID.self) { ids in
             let picked = model.entries.filter { ids.contains($0.id) }
@@ -73,9 +85,18 @@ struct QueueView: View {
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if let error = model.list.error {
-                ErrorBanner(error: error) { model.list.error = nil }.padding(10)
+            VStack(spacing: 8) {
+                if let error = model.list.error {
+                    ErrorBanner(error: error) { model.list.error = nil }
+                }
+                if model.pendingCount > 0 {
+                    runBar
+                }
             }
+            .padding(10)
+        }
+        .onChange(of: model.selection) {
+            if !model.selection.isEmpty { showsDetails = true }
         }
         .inspector(isPresented: $showsDetails) {
             QueueEntryDetails(entries: model.selectedEntries)
@@ -89,6 +110,9 @@ struct QueueView: View {
                 Button("Run Queue", systemImage: "play.fill") { app.present(.runQueue) }
                     .disabled(model.pendingCount == 0)
                     .help("Run every waiting change, once Cursor and Claude Code are closed")
+            }
+            ToolbarGap()
+            ToolbarItemGroup(placement: .primaryAction) {
                 Button("Try Again", systemImage: "arrow.uturn.forward") {
                     let picked = model.selectedEntries.filter(\.canRetry).map(\.id)
                     app.present(.retryQueue(picked))
@@ -101,10 +125,35 @@ struct QueueView: View {
                 Button("Clear", systemImage: "trash") { app.present(.clearQueue) }
                     .disabled(model.entries.isEmpty)
                     .help("Remove every entry")
+            }
+            ToolbarGap()
+            ToolbarItem(placement: .primaryAction) {
                 Button("Details", systemImage: "sidebar.trailing") { showsDetails.toggle() }
+                    .help("Show or hide the details of the selected entry")
             }
         }
         .task { model.load() }
+    }
+
+    /// A floating glass bar with what waits and the button that runs it.
+    private var runBar: some View {
+        GlassGroup(spacing: 8) {
+            HStack(spacing: 12) {
+                Image(systemName: "tray.full.fill").foregroundStyle(Theme.teal)
+                Text(model.pendingCount == 1 ? "1 change waits to run" : "\(model.pendingCount) changes wait to run")
+                    .fontWeight(.medium)
+                Text("Close Cursor and Claude Code first.")
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Button("Run Queue…", systemImage: "play.fill") { app.present(.runQueue) }
+                    .primaryActionStyle()
+            }
+            .padding(.leading, 16)
+            .padding(.trailing, 8)
+            .padding(.vertical, 8)
+            .chatkeepGlass(in: Capsule())
+        }
     }
 
     private var subtitle: String {

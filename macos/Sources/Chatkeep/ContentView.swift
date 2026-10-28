@@ -3,9 +3,11 @@ import SwiftUI
 
 struct ContentView: View {
     @Bindable var app: AppModel
+    /// The sidebar shows from the start and comes back when the window grows again.
+    @State private var columns = NavigationSplitViewVisibility.all
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columns) {
             List(selection: Binding(get: { app.screen }, set: { if let screen = $0 { app.screen = screen } })) {
                 Section {
                     row(.projects)
@@ -21,11 +23,13 @@ struct ContentView: View {
                     row(.maintenance)
                 }
             }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 210)
+            .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 300)
         } detail: {
             detail
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .navigationTitle(app.screen.title)
         }
+        .navigationSplitViewStyle(.balanced)
         .tint(Theme.teal)
         .environment(app)
         .dropDestination(for: URL.self) { urls, _ in

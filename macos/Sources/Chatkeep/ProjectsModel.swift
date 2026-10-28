@@ -20,6 +20,14 @@ final class ProjectsModel {
             case .unsaved: "Unsaved Cursor Windows"
             }
         }
+
+        /// For the segmented control in the toolbar.
+        var shortTitle: String {
+            switch self {
+            case .unsaved: "Unsaved"
+            default: title
+            }
+        }
     }
 
     let runner: ChatkeepRunner
@@ -34,7 +42,6 @@ final class ProjectsModel {
     var selection: Project.ID? {
         didSet { if selection != oldValue { loadDetail() } }
     }
-    var showsInspector = true
 
     let list = Loadable<[ToolResult<ProjectList>]>()
     let unsavedList = Loadable<[ToolResult<ProjectList>]>()
@@ -161,6 +168,21 @@ final class ProjectsModel {
 nonisolated extension Project {
     /// The path, or empty, so the table can sort on it.
     var pathText: String { path ?? "" }
+
+    /// The name to show first: the folder's own name, the file name of a `.code-workspace`, or
+    /// for a Claude Code worktree the project it belongs to and the worktree's name.
+    var displayName: String {
+        if isUnsaved { return "Unsaved window" }
+        guard let path else { return name }
+        let url = URL(filePath: path)
+        if kind == .codeWorkspace { return url.deletingPathExtension().lastPathComponent }
+        let parts = url.pathComponents
+        if let index = parts.lastIndex(of: "worktrees"), index >= 2, index + 1 < parts.count,
+           parts[index - 1] == ".claude" {
+            return "\(parts[index - 2]) (worktree \(parts[index + 1]))"
+        }
+        return url.lastPathComponent
+    }
 
     /// The last change, or the earliest date for a project without chats, so those sort last
     /// when the newest come first.

@@ -96,9 +96,10 @@ struct HistoryView: View {
                     }
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(.bar)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .chatkeepGlass(in: Capsule())
+                    .padding(10)
                 }
             }
         }

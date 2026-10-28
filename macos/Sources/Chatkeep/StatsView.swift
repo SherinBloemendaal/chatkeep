@@ -30,12 +30,14 @@ struct StatsView: View {
             if model.list.isLoading, !model.list.hasLoaded {
                 LoadingView(text: "Counting chats and tokens… This can take a while the first time.") { model.list.stop() }
             } else if let error = model.list.error, !model.list.hasLoaded {
-                VStack {
+                VStack(spacing: 14) {
                     ErrorBanner(error: error)
                     Button("Try Again") { model.load() }
+                        .primaryActionStyle()
                 }
                 .padding(40)
                 .frame(maxWidth: 560)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if model.list.hasLoaded, model.tools.isEmpty {
                 ContentUnavailableView("No Stats", systemImage: "chart.bar", description: Text("Neither Cursor nor Claude Code keeps chats on this Mac."))
             } else {
@@ -51,8 +53,7 @@ struct StatsView: View {
                         }
                     }
                     .padding(24)
-                    .frame(maxWidth: 1100, alignment: .leading)
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
@@ -208,8 +209,10 @@ struct StatGrid<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 16)], spacing: 16) {
-            content
+        GlassGroup(spacing: 16) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 16)], spacing: 16) {
+                content
+            }
         }
     }
 }
@@ -235,7 +238,7 @@ struct StatCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
+        .chatkeepGlass(in: RoundedRectangle(cornerRadius: 18), tint: Theme.brandTeal.opacity(0.08))
     }
 }
 
@@ -250,7 +253,7 @@ struct Card<Content: View>: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
+        .background(.quinary, in: RoundedRectangle(cornerRadius: 14))
     }
 }
 

@@ -27,6 +27,8 @@ enum Theme {
     /// The Chatkeep teal of the app icon, a little lighter in dark mode so it keeps its contrast.
     static let teal = Color.dynamic(light: 0x0D9488, dark: 0x2CC5B4)
     static let deepTeal = Color(nsColor: NSColor(hex: 0x0B5F86))
+    /// The exact brand teal, for the tint of primary glass buttons.
+    static let brandTeal = Color(nsColor: NSColor(hex: 0x0D9488))
     static let brand = LinearGradient(
         colors: [Color(nsColor: NSColor(hex: 0x2CC5B4)), Color(nsColor: NSColor(hex: 0x0D9488)), deepTeal],
         startPoint: .topLeading,
@@ -151,11 +153,33 @@ struct Pill: View {
     }
 }
 
+/// The tool as a small glass badge, for headers and reports.
 struct ToolTag: View {
     var tool: Tool
 
     var body: some View {
-        Pill(text: tool.label, color: Theme.color(for: tool), systemImage: Theme.symbol(for: tool))
+        HStack(spacing: 4) {
+            Image(systemName: Theme.symbol(for: tool)).font(.system(size: 9, weight: .bold))
+            Text(tool.label).font(.system(size: 11, weight: .semibold))
+        }
+        .foregroundStyle(Theme.color(for: tool))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .chatkeepGlass(in: Capsule(), tint: Theme.color(for: tool).opacity(0.18))
+        .fixedSize()
+    }
+}
+
+/// The tool as an icon only, for table rows where a badge would not fit.
+struct ToolIcon: View {
+    var tool: Tool
+
+    var body: some View {
+        Image(systemName: Theme.symbol(for: tool))
+            .foregroundStyle(Theme.color(for: tool))
+            .frame(width: 18)
+            .help(tool.label)
+            .accessibilityLabel(tool.label)
     }
 }
 
@@ -190,11 +214,12 @@ struct ErrorBanner: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 10))
+        .chatkeepGlass(in: RoundedRectangle(cornerRadius: 14))
     }
 }
 
-/// Shown while a read runs: what it does, and a Stop button when it is safe to stop.
+/// Shown while a read runs: what it does, and a Stop button when it is safe to stop. A floating
+/// glass panel centered in the space it is given.
 struct LoadingView: View {
     var text: String
     var stop: (() -> Void)?
@@ -205,12 +230,94 @@ struct LoadingView: View {
                 .controlSize(.large)
             Text(text)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
             if let stop {
                 Button("Stop", action: stop)
+                    .secondaryActionStyle()
                     .help("Stop reading. Nothing is changed.")
             }
         }
+        .padding(24)
+        .frame(maxWidth: 420)
+        .chatkeepGlass(in: RoundedRectangle(cornerRadius: 20))
+        .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// A one-line progress note, for places with little room such as a sheet.
+struct InlineProgress: View {
+    var text: String
+    var stop: (() -> Void)?
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ProgressView().controlSize(.small)
+            Text(text).foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+            if let stop {
+                Button("Stop", action: stop)
+                    .secondaryActionStyle()
+                    .help("Stop. Nothing is changed.")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - Glass
+
+extension View {
+    /// Liquid Glass on macOS 26, a material on macOS 15. For the control and floating layer
+    /// (badges, banners, tiles), not for content rows. Reduce Transparency and Increase Contrast
+    /// are handled by the system on both.
+    @ViewBuilder
+    func chatkeepGlass(in shape: some Shape, tint: Color? = nil, interactive: Bool = false) -> some View {
+        if #available(macOS 26, *) {
+            glassEffect(Glass.regular.tint(tint).interactive(interactive), in: shape)
+        } else {
+            background(.regularMaterial, in: shape)
+        }
+    }
+
+    /// The main action of a view: prominent glass in the brand teal, or a prominent bordered button.
+    @ViewBuilder
+    func primaryActionStyle() -> some View {
+        if #available(macOS 26, *) {
+            buttonStyle(.glassProminent).tint(Theme.brandTeal)
+        } else {
+            buttonStyle(.borderedProminent).tint(Theme.brandTeal)
+        }
+    }
+
+    /// Prominent when the action is the next step, plain otherwise.
+    @ViewBuilder
+    func actionStyle(prominent: Bool) -> some View {
+        if prominent { primaryActionStyle() } else { secondaryActionStyle() }
+    }
+
+    /// Other actions next to it: plain glass, or a bordered button.
+    @ViewBuilder
+    func secondaryActionStyle() -> some View {
+        if #available(macOS 26, *) {
+            buttonStyle(.glass)
+        } else {
+            buttonStyle(.bordered)
+        }
+    }
+}
+
+/// Several glass shapes that sit together, so they blend and morph as one on macOS 26.
+struct GlassGroup<Content: View>: View {
+    var spacing: CGFloat?
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        if #available(macOS 26, *) {
+            GlassEffectContainer(spacing: spacing) { content }
+        } else {
+            content
+        }
     }
 }
 
@@ -259,5 +366,17 @@ enum Reveal {
     static func copy(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+    }
+}
+
+/// A fixed gap between toolbar groups, so each group gets its own glass capsule on macOS 26.
+/// Nothing on macOS 15, where the groups sit as before.
+struct ToolbarGap: ToolbarContent {
+    var placement = ToolbarItemPlacement.primaryAction
+
+    var body: some ToolbarContent {
+        if #available(macOS 26, *) {
+            ToolbarSpacer(.fixed, placement: placement)
+        }
     }
 }
