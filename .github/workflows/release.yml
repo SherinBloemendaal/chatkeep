@@ -151,11 +151,31 @@ jobs:
       - name: Build DMG
         run: VERSION="${GITHUB_REF_NAME#v}" macos/scripts/make-dmg.sh
 
+      # The app's updater only installs a DMG signed with this key; the feed tells it where the
+      # DMG is. Sparkle's tools come from its release, pinned by checksum.
+      - name: Sign the DMG and write the update feed
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          SPARKLE_VERSION: "2.10.0"
+          SPARKLE_SHA256: c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c
+        run: |
+          set -euo pipefail
+          tools="${RUNNER_TEMP}/sparkle"
+          mkdir -p "${tools}"
+          curl -fsSL -o "${tools}/Sparkle.tar.xz" \
+            "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+          echo "${SPARKLE_SHA256}  ${tools}/Sparkle.tar.xz" | shasum -a 256 -c -
+          tar -xf "${tools}/Sparkle.tar.xz" -C "${tools}" ./bin/sign_update
+          SIGN_UPDATE="${tools}/bin/sign_update" macos/scripts/make-appcast.sh
+          cat macos/build/appcast.xml
+
       - name: Upload DMG
         uses: actions/upload-artifact@v6
         with:
           name: chatkeep-macos-app
-          path: macos/build/Chatkeep.dmg
+          path: |
+            macos/build/Chatkeep.dmg
+            macos/build/appcast.xml
           if-no-files-found: error
           retention-days: 1
 
@@ -184,6 +204,7 @@ jobs:
             chatkeep-aarch64-unknown-linux-gnu.tar.gz
             chatkeep-x86_64-pc-windows-msvc.zip
             Chatkeep.dmg
+            appcast.xml
           )
           for name in "${expected[@]}"; do
             if [ ! -f "${name}" ]; then
@@ -209,6 +230,7 @@ jobs:
             artifacts/chatkeep-aarch64-unknown-linux-gnu.tar.gz
             artifacts/chatkeep-x86_64-pc-windows-msvc.zip
             artifacts/Chatkeep.dmg
+            artifacts/appcast.xml
             artifacts/SHA256SUMS
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

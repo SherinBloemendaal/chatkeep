@@ -7,6 +7,7 @@ struct AboutView: View {
     static let repository = URL(string: "https://github.com/SherinBloemendaal/chatkeep")!
 
     let runner: ChatkeepRunner?
+    @Bindable var updater: AppUpdater
     @State private var toolVersion: String?
     @State private var error: ChatkeepError?
 
@@ -47,6 +48,21 @@ struct AboutView: View {
                 }
                 if let error {
                     Text(error.message).foregroundStyle(Theme.failure)
+                }
+                if updater.isAvailable {
+                    Section("Updates") {
+                        Toggle("Check for updates automatically", isOn: $updater.checksAutomatically)
+                        Toggle("Download and install updates automatically", isOn: $updater.downloadsAutomatically)
+                            .disabled(!updater.checksAutomatically)
+                        LabeledContent("Last checked") {
+                            HStack {
+                                Text(updater.lastCheck.map { Format.relative($0) } ?? "Never")
+                                    .foregroundStyle(.secondary)
+                                Button("Check Now") { updater.checkForUpdates() }
+                                    .disabled(!updater.canCheckForUpdates)
+                            }
+                        }
+                    }
                 }
             }
             .formStyle(.grouped)

@@ -18,18 +18,25 @@ struct ChatkeepApp: App {
         }
         .defaultSize(width: 1240, height: 780)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") { appDelegate.updater.checkForUpdates() }
+                    .disabled(!appDelegate.updater.canCheckForUpdates)
+            }
             if case .success(let app) = appDelegate.setup {
                 MenuCommands(app: app)
             }
         }
 
         Settings {
-            AboutView(runner: try? appDelegate.setup.get().runner)
+            AboutView(runner: try? appDelegate.setup.get().runner, updater: appDelegate.updater)
         }
     }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// Started at launch, so the daily check runs even before a window opens.
+    let updater = AppUpdater()
+
     /// The app, or why it cannot run: without the chatkeep tool there is nothing to show.
     let setup: Result<AppModel, ChatkeepError> = Result { () throws(ChatkeepError) in
         AppModel(runner: try ChatkeepRunner())

@@ -24,7 +24,8 @@ if [ "${UNIVERSAL:-0}" = "1" ]; then
 fi
 
 swift build -c release --product Chatkeep ${arch_flags[@]+"${arch_flags[@]}"}
-binary="$(swift build -c release --product Chatkeep ${arch_flags[@]+"${arch_flags[@]}"} --show-bin-path)/Chatkeep"
+bin_path="$(swift build -c release --product Chatkeep ${arch_flags[@]+"${arch_flags[@]}"} --show-bin-path)"
+binary="$bin_path/Chatkeep"
 
 cli_dir="build/cli"
 rm -rf "$cli_dir"
@@ -43,8 +44,11 @@ fi
 
 app="build/Chatkeep.app"
 rm -rf "$app"
-mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources" "$app/Contents/Frameworks"
 cp "$binary" "$app/Contents/MacOS/Chatkeep"
+# Sparkle (the updater) ships as a framework; ditto keeps its symlinks intact.
+ditto "$bin_path/Sparkle.framework" "$app/Contents/Frameworks/Sparkle.framework"
+install_name_tool -add_rpath "@executable_path/../Frameworks" "$app/Contents/MacOS/Chatkeep"
 cp Resources/Info.plist "$app/Contents/Info.plist"
 cp Resources/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
 cp "$cli_dir/chatkeep" "$app/Contents/Resources/chatkeep"
@@ -53,7 +57,14 @@ chmod 755 "$app/Contents/Resources/chatkeep"
 plutil -replace CFBundleShortVersionString -string "$VERSION" "$app/Contents/Info.plist"
 plutil -replace CFBundleVersion -string "$VERSION" "$app/Contents/Info.plist"
 
-# Sign the nested tool before the app: signing the app seals its resources, the tool included.
+# Sign what is nested before the app: signing the app seals everything inside it. Sparkle's
+# helpers go innermost first, as its documentation describes for signing it by hand.
+sparkle="$app/Contents/Frameworks/Sparkle.framework/Versions/B"
+codesign --force --sign - "$sparkle/XPCServices/Installer.xpc"
+codesign --force --sign - --preserve-metadata=entitlements "$sparkle/XPCServices/Downloader.xpc"
+codesign --force --sign - "$sparkle/Autoupdate"
+codesign --force --sign - "$sparkle/Updater.app"
+codesign --force --sign - "$app/Contents/Frameworks/Sparkle.framework"
 codesign --force --sign - --identifier io.github.sherinbloemendaal.chatkeep.cli "$app/Contents/Resources/chatkeep"
 codesign --force --sign - "$app"
 echo "Built $app ($VERSION)"

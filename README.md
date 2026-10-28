@@ -57,6 +57,14 @@ powershell -c "irm https://sherin.dev/chatkeep/install.ps1|iex"
 
 `$env:CHATKEEP_VERSION` pins a tag (`v1.2.0`). `$env:CHATKEEP_INSTALL` overrides the install directory (default `%USERPROFILE%\.chatkeep\bin`). The script adds that directory to the user PATH when it is missing, and prints a one-line `$env:Path` command for terminals that were already open. `chatkeep uninstall` removes that user PATH entry. `--purge` also deletes `%USERPROFILE%\.chatkeep`.
 
+### macOS app
+
+Download `Chatkeep.dmg` from the [latest release](https://github.com/SherinBloemendaal/chatkeep/releases/latest), open it, and drag Chatkeep to Applications. The app does everything the command line tool does, and carries its own copy of `chatkeep`, so it needs no separate install. It runs on macOS 15 or later, for Apple Silicon and Intel.
+
+The app is not signed with an Apple developer certificate. The first time you open it, macOS says it cannot check it: open **System Settings → Privacy & Security** and click **Open Anyway** once.
+
+The app checks for a new release once a day and installs it when you quit, or right away with **Chatkeep → Check for Updates…**. Every update is signed, and the app installs nothing that is not. Turn the daily check or the automatic install off in **Chatkeep → Settings**.
+
 <details>
 <summary><b>Published archives</b></summary>
 
@@ -71,6 +79,7 @@ Checked against `SHA256SUMS` on the GitHub release:
 | Linux x86_64 (glibc) | `chatkeep-x86_64-unknown-linux-gnu.tar.gz`  |
 | Linux arm64 (glibc)  | `chatkeep-aarch64-unknown-linux-gnu.tar.gz` |
 | Windows x64          | `chatkeep-x86_64-pc-windows-msvc.zip`       |
+| macOS app            | `Chatkeep.dmg`                              |
 
 </details>
 
