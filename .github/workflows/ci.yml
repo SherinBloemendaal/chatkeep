@@ -41,6 +41,39 @@ jobs:
       - name: Test
         run: cargo test --all-features
 
+  macos-app:
+    name: macOS app
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Test
+        working-directory: macos
+        run: swift test
+
+      - name: Build app (Apple Silicon and Intel)
+        run: UNIVERSAL=1 macos/build-app.sh
+
+      - name: Build DMG
+        run: macos/scripts/make-dmg.sh
+
   shellcheck:
     name: shellcheck
     runs-on: ubuntu-latest
@@ -51,8 +84,8 @@ jobs:
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
 
-      - name: shellcheck install.sh
-        run: shellcheck install.sh
+      - name: shellcheck
+        run: shellcheck install.sh macos/build-app.sh macos/scripts/*.sh
 
   psscriptanalyzer:
     name: PSScriptAnalyzer

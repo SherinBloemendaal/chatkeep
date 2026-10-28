@@ -1,0 +1,1 @@
+{"ok":true,"command":"history","dry_run":false,"results":[{"tool":null,"data":{"path":"/Users/me/.chatkeep/history.jsonl","entries":[{"at":"2026-09-24T10:04:28Z","command":"mv","args":["/Users/me/old/app","/Users/me/new/app"],"outcome":"ok","duration_ms":162}],"unreadable":0}}]}

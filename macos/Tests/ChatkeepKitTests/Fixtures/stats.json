@@ -1,0 +1,47 @@
+{
+  "ok": true,
+  "command": "stats",
+  "dry_run": false,
+  "results": [
+    {
+      "tool": "claude",
+      "data": {
+        "projects": 40, "missing": 18, "sessions": 82, "subagents": 769, "memory_files": 32,
+        "size_bytes": 1847276300,
+        "tokens": {"input": 277412, "output": 21661122, "cache_write": 114940596, "cache_read": 10853438900},
+        "subagent_tokens": {"input": 224672, "output": 9228788, "cache_write": 776797006, "cache_read": 18135669495},
+        "models": [{"model": "claude-opus-5-5", "sessions": 71}],
+        "per_month": [{"month": "2026-09", "sessions": 5}],
+        "busiest": [{"name": "~/projects/resolved/api", "sessions": 43}],
+        "largest": [{"name": "~/Library/Application Support/Claude/scratch-workspaces/46b3b10a/scratch-2026-10-07-8b8195", "size_bytes": 659715219}]
+      }
+    },
+    {
+      "tool": "cursor",
+      "data": {
+        "index_as_of": "2026-10-27T23:21:38Z",
+        "index_refreshing": false,
+        "installations": 8,
+        "user_profiles": 0,
+        "profiles": [
+          {"name": "default", "root": "/Users/me/Library/Application Support/Cursor", "workspaces": 73, "chats": 1144, "subagents": 1049, "global_db_bytes": 34357874688, "user_profile": false}
+        ],
+        "workspaces": 184,
+        "by_kind": [{"kind": "folder", "workspaces": 111}],
+        "chats": 3620,
+        "subagents": 12363,
+        "archived": 2233,
+        "usage": {
+          "conversations": 15983, "cost_cents": 61466, "requests": 9476, "cost_chats": 213,
+          "context_tokens": 1620491356, "context_chats": 13623,
+          "input_tokens": 21433261, "output_tokens": 1197591, "token_chats": 60
+        },
+        "models": [{"model": "grok-4.6", "chats": 781}],
+        "per_month": [{"month": "2025-02", "chats": 25}],
+        "busiest": [{"name": "~/projects/verbleif/verbleif.code-workspace (default)", "kind": "code-workspace", "chats": 1092}],
+        "global_db_bytes": 158142390272,
+        "workspace_dbs": [{"name": "~/projects/verbleif/frontend (default)", "kind": "folder", "bytes": 19136512}]
+      }
+    }
+  ]
+}

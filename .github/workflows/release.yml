@@ -114,14 +114,59 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  macos-app:
+    name: Build Chatkeep.dmg
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Test
+        working-directory: macos
+        run: swift test
+
+      - name: Build app (Apple Silicon and Intel)
+        env:
+          UNIVERSAL: "1"
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}" macos/build-app.sh
+          lipo -archs macos/build/Chatkeep.app/Contents/MacOS/Chatkeep
+          lipo -archs macos/build/Chatkeep.app/Contents/Resources/chatkeep
+          macos/build/Chatkeep.app/Contents/Resources/chatkeep --version
+
+      - name: Build DMG
+        run: VERSION="${GITHUB_REF_NAME#v}" macos/scripts/make-dmg.sh
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v6
+        with:
+          name: chatkeep-macos-app
+          path: macos/build/Chatkeep.dmg
+          if-no-files-found: error
+          retention-days: 1
+
   release:
     name: Publish release
-    needs: build
+    needs: [build, macos-app]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Download archives
+      - name: Download archives and DMG
         uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -138,6 +183,7 @@ jobs:
             chatkeep-x86_64-unknown-linux-gnu.tar.gz
             chatkeep-aarch64-unknown-linux-gnu.tar.gz
             chatkeep-x86_64-pc-windows-msvc.zip
+            Chatkeep.dmg
           )
           for name in "${expected[@]}"; do
             if [ ! -f "${name}" ]; then
@@ -162,6 +208,7 @@ jobs:
             artifacts/chatkeep-x86_64-unknown-linux-gnu.tar.gz
             artifacts/chatkeep-aarch64-unknown-linux-gnu.tar.gz
             artifacts/chatkeep-x86_64-pc-windows-msvc.zip
+            artifacts/Chatkeep.dmg
             artifacts/SHA256SUMS
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

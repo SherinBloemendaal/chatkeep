@@ -1,0 +1,11 @@
+{
+  "ok": false,
+  "command": "mv",
+  "error": {
+    "kind": "tool_running",
+    "message": "Cursor is running: default (Cursor, pid 4242).",
+    "hint": "Queue it with: chatkeep queue add -- mv -y /Users/me/old/app /Users/me/new/app",
+    "queue_args": ["mv", "-y", "/Users/me/old/app", "/Users/me/new/app"]
+  },
+  "results": []
+}

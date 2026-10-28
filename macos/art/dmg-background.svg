@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="400" viewBox="0 0 660 400">
+  <!-- Finder places Chatkeep.app at (165, 180) and Applications at (495, 180); see scripts/dmg-settings.py. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F7FBFC"/>
+      <stop offset="1" stop-color="#E9F5F3"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.45" r="0.6">
+      <stop offset="0" stop-color="#0D9488" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#0D9488" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="#0D9488" fill-opacity="0.08"/>
+    </pattern>
+    <linearGradient id="arrow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0D9488"/>
+      <stop offset="1" stop-color="#0284C7"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="660" height="400" fill="url(#bg)"/>
+  <rect width="660" height="400" fill="url(#dots)"/>
+  <rect width="660" height="400" fill="url(#glow)"/>
+
+  <!-- A few chats drifting in the corners, as on the README banner. -->
+  <g fill="#0D9488" opacity="0.08">
+    <path d="M52 312 h40 a14 14 0 0 1 14 14 v16 a14 14 0 0 1 -14 14 h-20 l-14 12 v-12 h-6 a14 14 0 0 1 -14 -14 v-16 a14 14 0 0 1 14 -14 z"/>
+    <path d="M110 344 h26 a10 10 0 0 1 10 10 v10 a10 10 0 0 1 -10 10 h-12 l-10 8 v-8 h-4 a10 10 0 0 1 -10 -10 v-10 a10 10 0 0 1 10 -10 z"/>
+    <path d="M568 300 h40 a14 14 0 0 1 14 14 v16 a14 14 0 0 1 -14 14 h-6 v12 l-14 -12 h-20 a14 14 0 0 1 -14 -14 v-16 a14 14 0 0 1 14 -14 z"/>
+    <path d="M530 340 h26 a10 10 0 0 1 10 10 v10 a10 10 0 0 1 -10 10 h-4 v8 l-10 -8 h-12 a10 10 0 0 1 -10 -10 v-10 a10 10 0 0 1 10 -10 z"/>
+  </g>
+
+  <path d="M262 168 C 300 120, 360 120, 398 168" fill="none" stroke="url(#arrow)" stroke-width="5"
+        stroke-linecap="round" stroke-dasharray="2 13"/>
+  <path d="M398 149 L400 171 L379 165" fill="none" stroke="#0284C7" stroke-width="5"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <text x="330" y="330" text-anchor="middle" font-family="-apple-system, 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif"
+        font-size="15" font-weight="600" fill="#344054">Drag Chatkeep to Applications</text>
+  <text x="330" y="352" text-anchor="middle" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif"
+        font-size="12" fill="#667085">Move the folder. Keep the chats.</text>
+</svg>

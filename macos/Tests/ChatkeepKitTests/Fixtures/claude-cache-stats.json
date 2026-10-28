@@ -1,0 +1,1 @@
+{"ok":true,"command":"claude cache stats","dry_run":false,"results":[{"tool":"claude","data":{"enabled":true,"exists":true,"path":"/Users/me/.chatkeep/claude-index.db","size_bytes":602112,"transcripts":851,"refreshed_at":"2026-10-27T23:22:04Z","schema":1}}]}

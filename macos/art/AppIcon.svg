@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- A chat tucked into a folder and locked in with the keyhole from the Chatkeep logo:
+       move the folder, keep the chats. -->
+  <defs>
+    <!-- Background: the Chatkeep teal, deepening towards the blue of the README banner. -->
+    <linearGradient id="bg" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#2CC5B4"/>
+      <stop offset="0.5" stop-color="#0D9488"/>
+      <stop offset="1" stop-color="#0B5F86"/>
+    </linearGradient>
+    <radialGradient id="shine" cx="0.28" cy="0.16" r="0.78">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.32"/>
+      <stop offset="0.6" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="front" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#DDF7F2"/>
+    </linearGradient>
+    <linearGradient id="bubble" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#EEFBF8"/>
+    </linearGradient>
+    <linearGradient id="keyhole" gradientUnits="userSpaceOnUse" x1="0" y1="530" x2="0" y2="690">
+      <stop offset="0" stop-color="#0F9F92"/>
+      <stop offset="1" stop-color="#0B6E86"/>
+    </linearGradient>
+    <clipPath id="squircle">
+      <rect x="100" y="100" width="824" height="824" rx="186"/>
+    </clipPath>
+    <filter id="iconShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="14"/>
+      <feOffset dx="0" dy="12" result="blur"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.3"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="20"/>
+      <feOffset dx="0" dy="18" result="blur"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.3"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <!-- The front of the folder casts a soft shadow up onto the chat behind it. -->
+    <filter id="lip" x="-20%" y="-30%" width="140%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="10"/>
+      <feOffset dx="0" dy="-6" result="blur"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.22"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <g filter="url(#iconShadow)">
+    <g clip-path="url(#squircle)">
+      <rect x="100" y="100" width="824" height="824" fill="url(#bg)"/>
+      <rect x="100" y="100" width="824" height="824" fill="url(#shine)"/>
+      <rect x="100.5" y="100.5" width="823" height="823" rx="186" fill="none" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="2"/>
+    </g>
+  </g>
+
+  <g filter="url(#shadow)">
+    <!-- Back of the folder, with its tab. -->
+    <path d="M272 286 H358 a40 40 0 0 1 30 13.5 L424 340 H752 a44 44 0 0 1 44 44 V726 a44 44 0 0 1 -44 44 H272 a44 44 0 0 1 -44 -44 V330 a44 44 0 0 1 44 -44 Z"
+          fill="#FFFFFF" fill-opacity="0.5"/>
+
+    <!-- The chat, tucked in behind the front. -->
+    <g transform="rotate(-8 596 370)">
+      <path d="M496 226 H696 a64 64 0 0 1 64 64 V450 a64 64 0 0 1 -64 64 H496 a64 64 0 0 1 -64 -64 V290 a64 64 0 0 1 64 -64 Z"
+            fill="url(#bubble)"/>
+      <g fill="#0D9488">
+        <circle cx="530" cy="330" r="23"/>
+        <circle cx="596" cy="330" r="23"/>
+        <circle cx="662" cy="330" r="23"/>
+      </g>
+    </g>
+
+    <!-- Front of the folder, with the keyhole of the Chatkeep logo. -->
+    <g filter="url(#lip)">
+      <path d="M260 444 H764 a44 44 0 0 1 44 44 V726 a44 44 0 0 1 -44 44 H260 a44 44 0 0 1 -44 -44 V488 a44 44 0 0 1 44 -44 Z"
+            fill="url(#front)"/>
+    </g>
+    <g fill="url(#keyhole)">
+      <circle cx="512" cy="572" r="40"/>
+      <path d="M491 594 H533 L546 676 a9 9 0 0 1 -9 10 H487 a9 9 0 0 1 -9 -10 Z"/>
+    </g>
+  </g>
+</svg>

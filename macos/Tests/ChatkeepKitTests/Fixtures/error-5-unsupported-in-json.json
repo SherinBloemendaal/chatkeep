@@ -1,0 +1,1 @@
+{"ok":false,"command":"update","error":{"kind":"unsupported_in_json","message":"update has no JSON output","hint":"Run it without --json.","queue_args":null},"results":[]}

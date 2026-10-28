@@ -1,0 +1,1 @@
+{"ok":true,"command":"cursor cache scan","dry_run":true,"results":[{"tool":"cursor","data":{"installs":[{"name":"default","root":"/Users/me/Library/Application Support/Cursor","scanned":true,"stale_sources":1,"reasons":["global db changed"]}]}}]}

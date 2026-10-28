@@ -1,0 +1,100 @@
+{
+  "ok": true,
+  "command": "ls",
+  "dry_run": false,
+  "results": [
+    {
+      "tool": "claude",
+      "data": {
+        "index_as_of": null,
+        "index_refreshing": false,
+        "details": [
+          {
+            "project": {
+              "tool": "claude",
+              "id": "-Users-me-projects-resolved-api",
+              "kind": "project",
+              "name": "~/projects/resolved/api",
+              "path": "/Users/me/projects/resolved/api",
+              "uri": null,
+              "storage_dir": "/Users/me/.claude/projects/-Users-me-projects-resolved-api",
+              "install": null,
+              "profile": null,
+              "profile_label": null,
+              "chats": 43,
+              "subagents": 200,
+              "archived": null,
+              "size_bytes": 439708356,
+              "last_active": "2026-10-27T23:22:02Z",
+              "destination": "present",
+              "destination_missing": false,
+              "memory_files": 17
+            },
+            "last_active": "2026-10-27T23:22:02Z",
+            "chats": [
+              {
+                "id": "88effc4d-8752-4607-8eb9-5d4bf880a8d3",
+                "title": "Fix login redirect",
+                "created_at": null,
+                "updated_at": "2026-10-27T23:22:02Z",
+                "archived": null,
+                "subagent": false,
+                "model": "claude-opus-5-5",
+                "tokens": {"input": 304, "output": 173503, "cache_write": 269684, "cache_read": 28345607},
+                "subagents": 8,
+                "size_bytes": 10830749,
+                "cwd": "/Users/me/projects/resolved/api",
+                "transcript": "/Users/me/.claude/projects/-Users-me-projects-resolved-api/88effc4d-8752-4607-8eb9-5d4bf880a8d3.jsonl"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "tool": "cursor",
+      "data": {
+        "index_as_of": "2026-10-27T23:21:38Z",
+        "index_refreshing": false,
+        "details": [
+          {
+            "project": {
+              "tool": "cursor",
+              "id": "0fe570bb46aa058cdd9bdfcf83698bfb",
+              "kind": "folder",
+              "name": "~/projects/resolved/api",
+              "path": "/Users/me/projects/resolved/api",
+              "uri": "file:///Users/me/projects/resolved/api",
+              "storage_dir": "/Users/me/Library/Application Support/Cursor/User/workspaceStorage/0fe570bb46aa058cdd9bdfcf83698bfb",
+              "install": "default",
+              "profile": "default",
+              "profile_label": "default",
+              "chats": 1,
+              "subagents": 0,
+              "archived": 0,
+              "size_bytes": 89225785,
+              "last_active": "2026-09-24T13:33:37Z",
+              "destination": "present",
+              "destination_missing": false
+            },
+            "last_active": "2026-09-24T13:33:37Z",
+            "chats": [
+              {
+                "id": "75b81147-47da-4df0-b342-bdd8bfc2e5cd",
+                "title": "Add the export button",
+                "created_at": "2026-09-24T13:33:34Z",
+                "updated_at": "2026-09-24T13:33:37Z",
+                "archived": false,
+                "subagent": false,
+                "model": "grok-4.7",
+                "tokens": {"input": 0, "output": 0, "context": 156861},
+                "cost_cents": 0,
+                "requests": 0
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

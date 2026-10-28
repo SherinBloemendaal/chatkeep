@@ -1,0 +1,263 @@
+import AppKit
+import ChatkeepKit
+import SwiftUI
+
+extension Color {
+    /// A color that follows the window's light or dark appearance.
+    static func dynamic(light: UInt32, dark: UInt32) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return NSColor(hex: isDark ? dark : light)
+        })
+    }
+}
+
+extension NSColor {
+    convenience init(hex: UInt32, alpha: Double = 1) {
+        self.init(
+            srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
+            green: CGFloat((hex >> 8) & 0xFF) / 255,
+            blue: CGFloat(hex & 0xFF) / 255,
+            alpha: alpha
+        )
+    }
+}
+
+enum Theme {
+    /// The Chatkeep teal of the app icon, a little lighter in dark mode so it keeps its contrast.
+    static let teal = Color.dynamic(light: 0x0D9488, dark: 0x2CC5B4)
+    static let deepTeal = Color(nsColor: NSColor(hex: 0x0B5F86))
+    static let brand = LinearGradient(
+        colors: [Color(nsColor: NSColor(hex: 0x2CC5B4)), Color(nsColor: NSColor(hex: 0x0D9488)), deepTeal],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
+    static let cursor = Color.dynamic(light: 0x4F46E5, dark: 0x818CF8)
+    static let claude = Color.dynamic(light: 0xC2410C, dark: 0xFB923C)
+    static let warning = Color.orange
+    static let failure = Color.red
+
+    static func color(for tool: Tool) -> Color {
+        switch tool {
+        case .cursor: cursor
+        case .claude: claude
+        case .unknown: .secondary
+        }
+    }
+
+    static func symbol(for tool: Tool) -> String {
+        switch tool {
+        case .cursor: "cursorarrow.rays"
+        case .claude: "sparkle"
+        case .unknown: "questionmark.circle"
+        }
+    }
+}
+
+// MARK: - Formatting
+
+enum Format {
+    static func bytes(_ value: Int64) -> String {
+        value.formatted(.byteCount(style: .file))
+    }
+
+    static func count(_ value: Int) -> String {
+        value.formatted(.number)
+    }
+
+    /// Token counts are often in the billions: `1.2B`, `173K`.
+    static func tokens(_ value: Int64) -> String {
+        value.formatted(.number.notation(.compactName).precision(.significantDigits(1...3)))
+    }
+
+    static func money(cents: Int64) -> String {
+        (Double(cents) / 100).formatted(.currency(code: "USD"))
+    }
+
+    static func duration(ms: Int64) -> String {
+        ms < 1000 ? "\(ms) ms" : (Double(ms) / 1000).formatted(.number.precision(.fractionLength(1))) + " s"
+    }
+
+    static func date(_ date: Date?) -> String {
+        guard let date else { return "Unknown" }
+        return date.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    static func relative(_ date: Date?) -> String {
+        guard let date else { return "Unknown" }
+        return date.formatted(.relative(presentation: .named))
+    }
+
+    /// `2026-09` as `Sep 2026`.
+    static func month(_ text: String) -> String {
+        guard let date = monthDate(text) else { return text }
+        return date.formatted(.dateTime.month(.abbreviated).year())
+    }
+
+    static func monthDate(_ text: String) -> Date? {
+        let parts = text.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 2 else { return nil }
+        return Calendar(identifier: .gregorian).date(from: DateComponents(year: parts[0], month: parts[1], day: 1))
+    }
+
+    /// A path with the home folder as `~`, as the tool shows it.
+    static func path(_ path: String) -> String {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path(percentEncoded: false)
+        let trimmedHome = home.hasSuffix("/") ? String(home.dropLast()) : home
+        guard path.hasPrefix(trimmedHome) else { return path }
+        return "~" + path.dropFirst(trimmedHome.count)
+    }
+
+    /// The start of a long id, enough to tell ids apart.
+    static func shortID(_ id: String) -> String {
+        String(id.prefix(8))
+    }
+
+    /// A kind in words; one this app does not know shows as the tool wrote it.
+    static func kind(_ kind: ProjectKind) -> String {
+        switch kind {
+        case .folder: "Folder"
+        case .codeWorkspace: "Workspace file"
+        case .unsaved: "Unsaved window"
+        case .emptyWindow: "Empty window"
+        case .remote: "Remote"
+        case .project: "Project"
+        case .unknown(let raw): raw
+        }
+    }
+}
+
+// MARK: - Small views
+
+/// A small rounded label, used for the tool of a project and for statuses.
+struct Pill: View {
+    var text: String
+    var color: Color
+    var systemImage: String?
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if let systemImage {
+                Image(systemName: systemImage).font(.system(size: 9, weight: .bold))
+            }
+            Text(text).font(.system(size: 11, weight: .semibold))
+        }
+        .foregroundStyle(color)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 2.5)
+        .background(color.opacity(0.13), in: Capsule())
+        .fixedSize()
+    }
+}
+
+struct ToolTag: View {
+    var tool: Tool
+
+    var body: some View {
+        Pill(text: tool.label, color: Theme.color(for: tool), systemImage: Theme.symbol(for: tool))
+    }
+}
+
+/// An error from the tool, in words: what went wrong and what to do about it.
+struct ErrorBanner: View {
+    var error: ChatkeepError
+    var dismiss: (() -> Void)?
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: error.kind == .toolRunning ? "lock.fill" : "exclamationmark.triangle.fill")
+                .foregroundStyle(error.kind == .toolRunning ? Theme.warning : Theme.failure)
+                .font(.title3)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(error.message)
+                    .fontWeight(.medium)
+                    .textSelection(.enabled)
+                if let hint = error.hint {
+                    Text(hint)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+            }
+            Spacer(minLength: 0)
+            if let dismiss {
+                Button("Dismiss", systemImage: "xmark", action: dismiss)
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    .help("Hide this message")
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+/// Shown while a read runs: what it does, and a Stop button when it is safe to stop.
+struct LoadingView: View {
+    var text: String
+    var stop: (() -> Void)?
+
+    var body: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+                .controlSize(.large)
+            Text(text)
+                .foregroundStyle(.secondary)
+            if let stop {
+                Button("Stop", action: stop)
+                    .help("Stop reading. Nothing is changed.")
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// A label and a value on one line, for detail panes.
+struct DetailRow: View {
+    var label: String
+    var value: String
+    var monospaced = false
+
+    var body: some View {
+        LabeledContent(label) {
+            Text(value)
+                .font(monospaced ? .callout.monospaced() : .callout)
+                .textSelection(.enabled)
+                .lineLimit(3)
+                .truncationMode(.middle)
+                .multilineTextAlignment(.trailing)
+        }
+    }
+}
+
+extension View {
+    /// The same "something went wrong" alert everywhere, with the tool's message and hint.
+    func errorAlert(_ error: Binding<ChatkeepError?>) -> some View {
+        alert(
+            error.wrappedValue?.message ?? "Something went wrong",
+            isPresented: Binding(get: { error.wrappedValue != nil }, set: { if !$0 { error.wrappedValue = nil } })
+        ) {
+            Button("OK") {}
+        } message: {
+            Text(error.wrappedValue?.hint ?? "")
+        }
+    }
+}
+
+enum Reveal {
+    static func inFinder(_ path: String) {
+        let url = URL(filePath: path)
+        if FileManager.default.fileExists(atPath: path) {
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        } else {
+            NSWorkspace.shared.activateFileViewerSelecting([url.deletingLastPathComponent()])
+        }
+    }
+
+    static func copy(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+}
