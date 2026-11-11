@@ -59,7 +59,7 @@ powershell -c "irm https://sherin.dev/chatkeep/install.ps1|iex"
 
 ### macOS app
 
-Download `Chatkeep.dmg` from the [latest release](https://github.com/SherinBloemendaal/chatkeep/releases/latest), open it, and drag Chatkeep to Applications. The app does everything the command line tool does, and carries its own copy of `chatkeep`, so it needs no separate install. It runs on macOS 15 or later, for Apple Silicon and Intel.
+Download `Chatkeep-VERSION.dmg` (for example `Chatkeep-1.4.0.dmg`) from the [latest release](https://github.com/SherinBloemendaal/chatkeep/releases/latest), open it, and drag Chatkeep to Applications. The app does everything the command line tool does, and carries its own copy of `chatkeep`, so it needs no separate install. It runs on macOS 15 or later, for Apple Silicon and Intel.
 
 The app is not signed with an Apple developer certificate. The first time you open it, macOS says it cannot check it: open **System Settings → Privacy & Security** and click **Open Anyway** once.
 
@@ -79,7 +79,7 @@ Checked against `SHA256SUMS` on the GitHub release:
 | Linux x86_64 (glibc) | `chatkeep-x86_64-unknown-linux-gnu.tar.gz`  |
 | Linux arm64 (glibc)  | `chatkeep-aarch64-unknown-linux-gnu.tar.gz` |
 | Windows x64          | `chatkeep-x86_64-pc-windows-msvc.zip`       |
-| macOS app            | `Chatkeep.dmg`                              |
+| macOS app            | `Chatkeep-VERSION.dmg`                      |
 
 </details>
 

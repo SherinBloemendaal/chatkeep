@@ -115,7 +115,7 @@ jobs:
           retention-days: 1
 
   macos-app:
-    name: Build Chatkeep.dmg
+    name: Build the Chatkeep DMG
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -169,7 +169,7 @@ jobs:
         with:
           name: chatkeep-macos-app
           path: |
-            macos/build/Chatkeep.dmg
+            macos/build/Chatkeep-*.dmg
             macos/build/appcast.xml
           if-no-files-found: error
           retention-days: 1
@@ -192,13 +192,14 @@ jobs:
         run: |
           set -euo pipefail
           cd artifacts
+          dmg="Chatkeep-${GITHUB_REF_NAME#v}.dmg"
           expected=(
             chatkeep-aarch64-apple-darwin.tar.gz
             chatkeep-x86_64-apple-darwin.tar.gz
             chatkeep-x86_64-unknown-linux-gnu.tar.gz
             chatkeep-aarch64-unknown-linux-gnu.tar.gz
             chatkeep-x86_64-pc-windows-msvc.zip
-            Chatkeep.dmg
+            "${dmg}"
             appcast.xml
           )
           for name in "${expected[@]}"; do
@@ -224,7 +225,7 @@ jobs:
             artifacts/chatkeep-x86_64-unknown-linux-gnu.tar.gz
             artifacts/chatkeep-aarch64-unknown-linux-gnu.tar.gz
             artifacts/chatkeep-x86_64-pc-windows-msvc.zip
-            artifacts/Chatkeep.dmg
+            artifacts/Chatkeep-*.dmg
             artifacts/appcast.xml
             artifacts/SHA256SUMS
         env:

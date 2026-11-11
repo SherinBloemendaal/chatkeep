@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Writes build/appcast.xml, the feed the app's updater (Sparkle) reads, for build/Chatkeep.dmg, and
+# Writes build/appcast.xml, the feed the app's updater (Sparkle) reads, for build/Chatkeep-VERSION.dmg, and
 # signs both the DMG and the feed, so the app only installs updates made by this script.
 # Run ./build-app.sh and scripts/make-dmg.sh first.
 #
@@ -12,9 +12,13 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 app="build/Chatkeep.app"
-dmg="build/Chatkeep.dmg"
 feed="build/appcast.xml"
 repo="SherinBloemendaal/chatkeep"
+plist="$app/Contents/Info.plist"
+[ -f "$plist" ] || { echo "make-appcast: $app is missing; run ./build-app.sh first" >&2; exit 1; }
+short_version="$(plutil -extract CFBundleShortVersionString raw "$plist")"
+dmg_name="Chatkeep-$short_version.dmg"
+dmg="build/$dmg_name"
 [ -f "$dmg" ] || { echo "make-appcast: $dmg is missing; run scripts/make-dmg.sh first" >&2; exit 1; }
 
 # The copy of Sparkle's tools that swift build downloaded, checked against the package's checksum.
@@ -35,11 +39,9 @@ escape() {
     sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'
 }
 
-plist="$app/Contents/Info.plist"
-short_version="$(plutil -extract CFBundleShortVersionString raw "$plist")"
 build_version="$(plutil -extract CFBundleVersion raw "$plist")"
 minimum_system="$(plutil -extract LSMinimumSystemVersion raw "$plist")"
-download_url="${DOWNLOAD_URL:-https://github.com/$repo/releases/download/v$short_version/Chatkeep.dmg}"
+download_url="${DOWNLOAD_URL:-https://github.com/$repo/releases/download/v$short_version/$dmg_name}"
 
 # What's new: the feat and fix commits since the previous release, without their prefix.
 previous="$(git describe --tags --abbrev=0 --match 'v*' "v$short_version^" 2>/dev/null || true)"
