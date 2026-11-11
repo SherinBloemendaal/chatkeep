@@ -14,15 +14,23 @@
               {
                 "chat": "704b8a53-43db-48be-87e4-41dfb6f00b48",
                 "title": "Plan the release",
-                "deleted_in": ["9efbfc68-3574-4c71-94bc-b94c905d05d0/3ab1ac9b-9a6b-4b53-9ca1-4205d57ee19d"],
-                "listed_in": ["1d2c3b4a-0000-4000-8000-000000000001/d68212da-94ca-4311-9743-1c72b0f9362b"],
+                "deleted_in": [
+                  "9efbfc68-3574-4c71-94bc-b94c905d05d0/3ab1ac9b-9a6b-4b53-9ca1-4205d57ee19d"
+                ],
+                "listed_in": [
+                  "1d2c3b4a-0000-4000-8000-000000000001/d68212da-94ca-4311-9743-1c72b0f9362b"
+                ],
                 "remove_waits": false
               },
               {
                 "chat": "local_0c1d2e3f",
                 "title": null,
-                "deleted_in": ["1d2c3b4a-0000-4000-8000-000000000001/d68212da-94ca-4311-9743-1c72b0f9362b"],
-                "listed_in": ["9efbfc68-3574-4c71-94bc-b94c905d05d0/3ab1ac9b-9a6b-4b53-9ca1-4205d57ee19d"],
+                "deleted_in": [
+                  "1d2c3b4a-0000-4000-8000-000000000001/d68212da-94ca-4311-9743-1c72b0f9362b"
+                ],
+                "listed_in": [
+                  "9efbfc68-3574-4c71-94bc-b94c905d05d0/3ab1ac9b-9a6b-4b53-9ca1-4205d57ee19d"
+                ],
                 "remove_waits": true
               }
             ]

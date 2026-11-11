@@ -992,17 +992,17 @@ again in the account that deleted it. A chat is its id or the start of it.
 
 One result, `tool: "claude"`. `data` is `{"entries": [...]}`, the newest N, oldest first:
 
-| Field     | Type            | Meaning                                                            |
-| --------- | --------------- | ------------------------------------------------------------------ |
-| `at`      | time or null    | When (the last time, for a repeated change).                       |
-| `profile` | string or null  | The sync profile.                                                  |
-| `action`  | string          | `add`, `update`, `remove`, `keep`, or `note` (from the watcher).   |
-| `chat`    | string or null  | The chat id.                                                       |
-| `title`   | string or null  | The chat title, or the text of a note.                             |
-| `account` | string or null  | The `account/organization` whose list changed.                     |
-| `source`  | string          | `manual` for a sync someone ran, `watch` for the watcher.          |
-| `changed` | array of string | For an update: what differed, e.g. `title`.                        |
-| `times`   | int             | How often this happened in a row.                                  |
+| Field     | Type            | Meaning                                                          |
+| --------- | --------------- | ---------------------------------------------------------------- |
+| `at`      | time or null    | When (the last time, for a repeated change).                     |
+| `profile` | string or null  | The sync profile.                                                |
+| `action`  | string          | `add`, `update`, `remove`, `keep`, or `note` (from the watcher). |
+| `chat`    | string or null  | The chat id.                                                     |
+| `title`   | string or null  | The chat title, or the text of a note.                           |
+| `account` | string or null  | The `account/organization` whose list changed.                   |
+| `source`  | string          | `manual` for a sync someone ran, `watch` for the watcher.        |
+| `changed` | array of string | For an update: what differed, e.g. `title`.                      |
+| `times`   | int             | How often this happened in a row.                                |
 
 ```json
 {
