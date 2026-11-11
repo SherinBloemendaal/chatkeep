@@ -373,6 +373,8 @@ pub fn label(command: &Command) -> String {
                 Some(SyncAction::Rm(_)) => &["claude", "sync", "rm"],
                 Some(SyncAction::Watch(_)) => &["claude", "sync", "watch"],
                 Some(SyncAction::Log(_)) => &["claude", "sync", "log"],
+                Some(SyncAction::Pending(_)) => &["claude", "sync", "pending"],
+                Some(SyncAction::Decide(_)) => &["claude", "sync", "decide"],
                 Some(SyncAction::Auto(args)) => match args.action {
                     SyncAutoAction::On => &["claude", "sync", "auto", "on"],
                     SyncAutoAction::Off => &["claude", "sync", "auto", "off"],
@@ -425,7 +427,12 @@ fn confirmed_write(command: &Command) -> bool {
             ClaudeCommand::Cache(args) => matches!(args.action, ClaudeCacheAction::Clear(_)),
             ClaudeCommand::Sync(args) => matches!(
                 args.action,
-                None | Some(SyncAction::Set(_) | SyncAction::Add(_) | SyncAction::Rm(_))
+                None | Some(
+                    SyncAction::Set(_)
+                        | SyncAction::Add(_)
+                        | SyncAction::Rm(_)
+                        | SyncAction::Decide(_)
+                )
             ),
         },
         Command::Queue(args) => !matches!(args.action, QueueAction::Add(_) | QueueAction::List(_)),
@@ -537,6 +544,12 @@ fn missing(command: &Command) -> Option<&'static str> {
                 action: Some(SyncAction::Set(args) | SyncAction::Add(args)),
                 ..
             }) if args.accounts.is_empty() => Some("the accounts"),
+            ClaudeCommand::Sync(cli::SyncArgs {
+                action: Some(SyncAction::Decide(args)),
+                ..
+            }) if args.remove.is_empty() && args.keep.is_empty() && args.restore.is_empty() => {
+                Some("a decision: --remove, --keep or --restore with a chat id")
+            }
             _ => None,
         },
         Command::Queue(args) => match &args.action {

@@ -433,3 +433,206 @@ fn the_sync_log_says_which_chat_changed_how_and_folds_repeats() {
     cli(&home, &["claude", "sync", "log"]).unwrap();
     cli(&home, &["claude", "sync", "log", "--last", "2"]).unwrap();
 }
+
+fn pending(home: &Home) -> Vec<sync::Pending> {
+    let config = sync::load(&home.rt.layout.chatkeep_home).unwrap();
+    sync::plan(&home.rt, "work", &config.profiles["work"])
+        .unwrap()
+        .pending()
+}
+
+/// Accounts in step, then A deletes chat one: it waits for a decision.
+/// Returns the folder of B's list.
+fn one_deleted_in_a(home: &Home) -> PathBuf {
+    let (a_one, _, b_two, _) = two_accounts(home);
+    run(home, false);
+    fs::remove_file(&a_one).unwrap();
+    run(home, false);
+    b_two.parent().unwrap().to_path_buf()
+}
+
+#[test]
+fn a_deleted_chat_waits_with_where_it_went_and_where_it_still_is() {
+    let home = Home::new();
+    one_deleted_in_a(&home);
+    assert_eq!(
+        pending(&home),
+        vec![sync::Pending {
+            chat: SESSION.to_string(),
+            title: "Chat one".to_string(),
+            deleted_in: vec![format!("{A}/org-a")],
+            listed_in: vec![format!("{B}/org-b")],
+            remove_waits: false,
+        }]
+    );
+}
+
+#[test]
+fn keeping_a_deleted_chat_stops_the_question_and_never_adds_it_back() {
+    let home = Home::new();
+    let b_dir = one_deleted_in_a(&home);
+    let choices = [(SESSION.to_string(), sync::Choice::Keep)];
+    let report = sync::decide(&home.rt, "work", &choices).unwrap();
+    assert_eq!(
+        report.applied,
+        vec!["keep 1 chat (work) in bbbbbbbb-2222-4222-8222-222222222222"]
+    );
+    assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+
+    assert!(pending(&home).is_empty());
+    let again = run(&home, false);
+    assert!(again.applied.is_empty(), "{:?}", again.applied);
+    assert!(again.warnings.is_empty(), "{:?}", again.warnings);
+    assert_eq!(titles(&home, A, "org-a").len(), 2);
+    assert_eq!(titles(&home, B, "org-b").len(), 3);
+    let log = sync::read_log(&home.rt.layout.chatkeep_home).unwrap();
+    assert!(
+        log.iter()
+            .any(|entry| entry.action == "keep" && entry.chat == SESSION)
+    );
+
+    // Once B deletes it too, there is nothing left to keep.
+    let b_one = fs::read_dir(&b_dir)
+        .unwrap()
+        .flatten()
+        .map(|item| item.path())
+        .find(|file| fs::read_to_string(file).is_ok_and(|raw| raw.contains(SESSION)))
+        .unwrap();
+    fs::remove_file(b_one).unwrap();
+    run(&home, false);
+    let config = sync::load(&home.rt.layout.chatkeep_home).unwrap();
+    assert!(config.profiles["work"].kept.is_empty());
+    assert!(pending(&home).is_empty());
+}
+
+#[test]
+fn putting_a_deleted_chat_back_lists_it_again_where_it_was_deleted() {
+    let home = Home::new();
+    one_deleted_in_a(&home);
+    // A dry run says what would happen and changes nothing.
+    let mut dry = home.rt.clone();
+    dry.dry_run = true;
+    let choices = [(SESSION[..8].to_string(), sync::Choice::Restore)];
+    let planned = sync::decide(&dry, "work", &choices).unwrap();
+    assert_eq!(planned.applied.len(), 1, "{:?}", planned.applied);
+    assert!(planned.applied[0].starts_with("add 1 chat"));
+    assert_eq!(pending(&home).len(), 1);
+    assert_eq!(titles(&home, A, "org-a").len(), 2);
+
+    let report = sync::decide(&home.rt, "work", &choices).unwrap();
+    assert_eq!(report.applied, planned.applied);
+    assert_eq!(titles(&home, A, "org-a").len(), 3);
+    assert_eq!(titles(&home, B, "org-b").len(), 3);
+    assert!(pending(&home).is_empty());
+    assert!(run(&home, false).applied.is_empty());
+}
+
+#[test]
+fn removing_a_deleted_chat_waits_while_the_app_is_open_with_that_account() {
+    let mut home = Home::new();
+    one_deleted_in_a(&home);
+    home.running(vec![process(7, DESKTOP_APP)]);
+    assert!(pending(&home)[0].remove_waits);
+    let remove = [(SESSION.to_string(), sync::Choice::Remove)];
+    let report = sync::decide(&home.rt, "work", &remove).unwrap();
+    assert!(report.applied.is_empty(), "{:?}", report.applied);
+    assert!(
+        report
+            .warnings
+            .iter()
+            .any(|line| line.contains("1 removal waits")),
+        "{:?}",
+        report.warnings
+    );
+    assert_eq!(titles(&home, B, "org-b").len(), 3);
+    assert_eq!(pending(&home).len(), 1);
+
+    home.running(Vec::new());
+    let report = sync::decide(&home.rt, "work", &remove).unwrap();
+    assert_eq!(report.applied.len(), 1, "{:?}", report.applied);
+    assert!(report.applied[0].starts_with("remove 1 chat"));
+    assert_eq!(titles(&home, B, "org-b").len(), 2);
+    assert!(pending(&home).is_empty());
+}
+
+#[test]
+fn a_decision_names_a_chat_that_waits() {
+    let home = Home::new();
+    one_deleted_in_a(&home);
+    let unknown = [(OTHER.to_string(), sync::Choice::Remove)];
+    let err = sync::decide(&home.rt, "work", &unknown).unwrap_err();
+    assert!(
+        format!("{err:#}").contains("waits for a decision"),
+        "{err:#}"
+    );
+    let twice = [
+        (SESSION.to_string(), sync::Choice::Remove),
+        (SESSION.to_string(), sync::Choice::Keep),
+    ];
+    let err = sync::decide(&home.rt, "work", &twice).unwrap_err();
+    assert!(
+        format!("{err:#}").contains("two different decisions"),
+        "{err:#}"
+    );
+    assert_eq!(titles(&home, B, "org-b").len(), 3);
+}
+
+#[test]
+fn the_command_line_shows_and_takes_decisions() {
+    let home = Home::new();
+    one_deleted_in_a(&home);
+    cli(&home, &["claude", "sync", "pending"]).unwrap();
+    cli(&home, &["claude", "sync", "pending", "work"]).unwrap();
+    assert!(cli(&home, &["claude", "sync", "decide", "work"]).is_err());
+    cli(
+        &home,
+        &["claude", "sync", "decide", "work", "--keep", SESSION, "-n"],
+    )
+    .unwrap();
+    assert_eq!(pending(&home).len(), 1);
+    cli(
+        &home,
+        &[
+            "claude", "sync", "decide", "work", "--remove", SESSION, "-y",
+        ],
+    )
+    .unwrap();
+    assert!(pending(&home).is_empty());
+    assert_eq!(titles(&home, B, "org-b").len(), 2);
+}
+
+#[test]
+fn a_kept_chat_waits_again_when_another_account_deletes_it() {
+    let home = Home::new();
+    let b_dir = one_deleted_in_a(&home);
+    let keep = [(SESSION.to_string(), sync::Choice::Keep)];
+    sync::decide(&home.rt, "work", &keep).unwrap();
+    assert!(pending(&home).is_empty());
+
+    // A lists it again (copied from B), so A no longer counts as having deleted it.
+    let b_one = fs::read_dir(&b_dir)
+        .unwrap()
+        .flatten()
+        .map(|item| item.path())
+        .find(|file| fs::read_to_string(file).is_ok_and(|raw| raw.contains(SESSION)))
+        .unwrap();
+    let a_dir = b_dir
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join(A)
+        .join("org-a");
+    fs::copy(&b_one, a_dir.join("local_back.json")).unwrap();
+    run(&home, false);
+    let config = sync::load(&home.rt.layout.chatkeep_home).unwrap();
+    assert!(config.profiles["work"].kept.is_empty());
+
+    // Now B deletes it: that is a new deletion, and it is asked about.
+    fs::remove_file(&b_one).unwrap();
+    run(&home, false);
+    let waiting = pending(&home);
+    assert_eq!(waiting.len(), 1, "{waiting:?}");
+    assert_eq!(waiting[0].deleted_in, vec![format!("{B}/org-b")]);
+    assert_eq!(waiting[0].listed_in, vec![format!("{A}/org-a")]);
+}

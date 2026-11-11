@@ -26,6 +26,9 @@ final class AccountsModel {
     let profiles = Loadable<SyncProfiles>()
     let log = Loadable<SyncLog>()
     let auto = Loadable<AutoSyncStatus>()
+    /// Chats one account deleted while another still lists them. Read for the sidebar badge
+    /// too, so before this page is opened.
+    let pending = Loadable<SyncPending>()
     private(set) var isSwitchingAuto = false
     var actionError: ChatkeepError?
 
@@ -38,6 +41,28 @@ final class AccountsModel {
         profiles.load(CLI.syncProfiles(), with: runner) { $0.data }
         log.load(CLI.syncLog(last: 200), with: runner) { $0.data }
         loadAuto()
+        loadPending()
+    }
+
+    func loadPending() {
+        pending.load(CLI.syncPending(), with: runner) { $0.data }
+    }
+
+    var pendingCount: Int { pending.value?.count ?? 0 }
+
+    /// The chats that wait for a decision in one profile.
+    func pending(in profile: String) -> [SyncPending.Chat] {
+        pending.value?.profiles.first { $0.name == profile }?.chats ?? []
+    }
+
+    /// Why the chats that wait in a profile could not be read, if so.
+    func pendingError(in profile: String) -> String? {
+        pending.value?.profiles.first { $0.name == profile }?.error
+    }
+
+    /// The profiles with chats that wait, in the order the tool lists them.
+    var profilesWithPending: [String] {
+        (pending.value?.profiles ?? []).filter { !$0.chats.isEmpty }.map(\.name)
     }
 
     func loadAuto() {
@@ -50,7 +75,15 @@ final class AccountsModel {
     /// The best name for an `account/organization` value, as the accounts list shows it.
     func label(for member: String?) -> String {
         guard let member else { return "" }
-        return accounts.first { $0.member == member }?.label ?? Format.shortID(member)
+        if let account = accounts.first(where: { $0.member == member }) { return account.label }
+        // The accounts list loads with this page; the profiles know the same names.
+        let members = (profiles.value?.profiles ?? []).flatMap(\.accounts)
+        return members.first { $0.member == member }?.label ?? Format.shortID(member)
+    }
+
+    /// Several accounts in a sentence: `Work`, `Work and Personal`.
+    func labels(for members: [String]) -> String {
+        members.map { label(for: $0) }.formatted(.list(type: .and))
     }
 
     /// `claude sync auto on` or `off`: it writes without a preview, as at a terminal.
@@ -101,13 +134,21 @@ struct AccountsView: View {
             case .log: SyncLogTable(model: model)
             }
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if model.pendingCount > 0 {
+                PendingDecisionsBanner(model: model)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+            }
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if let error = model.actionError ?? model.list.error ?? model.profiles.error ?? model.log.error {
+            if let error = model.actionError ?? model.list.error ?? model.profiles.error ?? model.log.error ?? model.pending.error {
                 ErrorBanner(error: error) {
                     model.actionError = nil
                     model.list.error = nil
                     model.profiles.error = nil
                     model.log.error = nil
+                    model.pending.error = nil
                 }
                 .padding(10)
             }
@@ -196,6 +237,12 @@ struct AccountsView: View {
         List {
             ForEach(profiles) { profile in
                 Section {
+                    if let problem = model.pendingError(in: profile.name) {
+                        Label(problem, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(Theme.warning)
+                            .textSelection(.enabled)
+                            .help("Deleted chats of this profile cannot be checked until this is solved")
+                    }
                     ForEach(profile.accounts) { member in
                         HStack {
                             Image(systemName: member.signedIn ? "person.crop.circle.fill.badge.checkmark" : "person.crop.circle")
@@ -219,9 +266,18 @@ struct AccountsView: View {
                     HStack {
                         Text(profile.name).font(.headline)
                         Text("\(profile.accounts.count) accounts").foregroundStyle(.secondary)
+                        let waiting = model.pending(in: profile.name).count
+                        if waiting > 0 {
+                            Pill(text: "\(waiting) to decide", color: Theme.warning, systemImage: "exclamationmark.triangle.fill")
+                                .help("Deleted in one account of this profile and still listed in another")
+                        }
                         Spacer()
+                        if waiting > 0 {
+                            Button("Decide…") { app.present(.decideSync(profile: profile.name)) }
+                                .primaryActionStyle()
+                        }
                         Button("Sync Now…") { app.present(.syncNow(profile: profile.name)) }
-                            .primaryActionStyle()
+                            .actionStyle(prominent: waiting == 0)
                         Button("Add Accounts…") { app.present(.editSyncProfile(name: profile.name, adding: true)) }
                             .secondaryActionStyle()
                         Menu("More") {
@@ -397,6 +453,7 @@ struct SyncLogTable: View {
         case .add: "Added"
         case .update: "Updated"
         case .remove: "Removed"
+        case .keep: "Kept"
         case .note: "Note"
         case .unknown(let raw): raw
         }
@@ -407,7 +464,50 @@ struct SyncLogTable: View {
         case .add: .green
         case .update: Theme.teal
         case .remove: Theme.failure
+        case .keep: .blue
         case .note, .unknown: .secondary
         }
+    }
+}
+
+/// Chats that were deleted in one account and are still listed in another: what waits, and
+/// the way to decide. Nothing is removed before that.
+struct PendingDecisionsBanner: View {
+    var model: AccountsModel
+    @Environment(AppModel.self) private var app
+
+    var body: some View {
+        let count = model.pendingCount
+        let profiles = model.profilesWithPending
+        HStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(Theme.warning)
+                .font(.title3)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(count == 1 ? "1 chat needs your decision" : "\(count) chats need your decision")
+                    .fontWeight(.medium)
+                Text("You deleted \(count == 1 ? "it" : "them") in one account, but another account still lists \(count == 1 ? "it" : "them"). Nothing is removed until you choose.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            if profiles.count == 1, let profile = profiles.first {
+                Button("Decide…") { app.present(.decideSync(profile: profile)) }
+                    .primaryActionStyle()
+            } else {
+                Menu("Decide…") {
+                    ForEach(profiles, id: \.self) { profile in
+                        Button("\(profile) (\(model.pending(in: profile).count))") {
+                            app.present(.decideSync(profile: profile))
+                        }
+                    }
+                }
+                .fixedSize()
+                .help("Choose the profile to decide for")
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .chatkeepGlass(in: RoundedRectangle(cornerRadius: 14))
     }
 }

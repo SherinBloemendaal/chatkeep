@@ -641,6 +641,101 @@ fn claude_accounts_and_sync_profiles_are_listed() {
 }
 
 #[test]
+fn claude_sync_pending_and_decide_answer_in_json() {
+    let home = claude_home::Home::new();
+    two_accounts(&home);
+    let tools = Tools::new(None, Some(home.rt.clone()));
+    ok(&tools, &["claude", "sync", "--json", "-y"]);
+    let body = ok(&tools, &["claude", "sync", "pending", "--json"]);
+    assert_eq!(body["command"], "claude sync pending");
+    let profiles = body["results"][0]["data"]["profiles"].as_array().unwrap();
+    assert_eq!(profiles[0]["name"], "work");
+    assert_eq!(profiles[0]["chats"].as_array().unwrap().len(), 0);
+
+    // A deletes the chat: it waits, and says where it went and where it still is.
+    let a_dir = home
+        .rt
+        .layout
+        .desktop_sessions_dir()
+        .unwrap()
+        .join(ACCOUNT_A)
+        .join("org-a");
+    for item in std::fs::read_dir(&a_dir).unwrap().flatten() {
+        std::fs::remove_file(item.path()).unwrap();
+    }
+    ok(&tools, &["claude", "sync", "--json", "-y"]);
+    let body = ok(&tools, &["claude", "sync", "pending", "work", "--json"]);
+    let chat = &body["results"][0]["data"]["profiles"][0]["chats"][0];
+    assert_eq!(chat["chat"], claude_home::SESSION);
+    assert_eq!(chat["deleted_in"][0], format!("{ACCOUNT_A}/org-a"));
+    assert_eq!(chat["listed_in"][0], format!("{ACCOUNT_B}/org-b"));
+    assert_eq!(chat["remove_waits"], false);
+    assert!(chat["title"].is_string());
+
+    // A decision needs a chat, and -y or -n like every other write.
+    failed(
+        &tools,
+        &["claude", "sync", "decide", "work", "--json", "-y"],
+    );
+    failed(
+        &tools,
+        &[
+            "claude",
+            "sync",
+            "decide",
+            "work",
+            "--keep",
+            claude_home::SESSION,
+            "--json",
+        ],
+    );
+    let body = ok(
+        &tools,
+        &[
+            "claude",
+            "sync",
+            "decide",
+            "work",
+            "--keep",
+            claude_home::SESSION,
+            "--json",
+            "-n",
+        ],
+    );
+    assert_eq!(body["command"], "claude sync decide");
+    assert_eq!(body["dry_run"], true);
+    let body = ok(&tools, &["claude", "sync", "pending", "--json"]);
+    assert_eq!(
+        body["results"][0]["data"]["profiles"][0]["chats"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    ok(
+        &tools,
+        &[
+            "claude",
+            "sync",
+            "decide",
+            "work",
+            "--keep",
+            claude_home::SESSION,
+            "--json",
+            "-y",
+        ],
+    );
+    let body = ok(&tools, &["claude", "sync", "pending", "--json"]);
+    assert_eq!(
+        body["results"][0]["data"]["profiles"][0]["chats"]
+            .as_array()
+            .unwrap()
+            .len(),
+        0
+    );
+}
+
+#[test]
 fn claude_ls_of_one_project_lists_its_sessions() {
     let home = claude_home::Home::new();
     let app = home.folder("app");

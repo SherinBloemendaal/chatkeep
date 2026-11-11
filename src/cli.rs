@@ -163,6 +163,37 @@ pub enum SyncAction {
     Auto(SyncAutoArgs),
     /// Show what the syncs changed, newest last.
     Log(SyncLogArgs),
+    /// Show the chats that were deleted in one account and are still listed in another.
+    Pending(SyncPendingArgs),
+    /// Decide what happens to those chats: remove them from the other accounts, keep them
+    /// there, or put them back.
+    Decide(SyncDecideArgs),
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SyncPendingArgs {
+    /// The sync profile to look at. Without it, every profile.
+    #[arg(value_hint = ValueHint::Other)]
+    pub profile: Option<String>,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SyncDecideArgs {
+    #[command(flatten)]
+    pub flags: WriteFlags,
+    /// The profile the chats wait in.
+    #[arg(value_hint = ValueHint::Other)]
+    pub name: String,
+    /// Remove this chat from the accounts that still list it. A chat id or the start of one;
+    /// chatkeep claude sync pending shows them.
+    #[arg(long, value_name = "CHAT", value_hint = ValueHint::Other)]
+    pub remove: Vec<String>,
+    /// Keep this chat where it is still listed, and stop asking about it.
+    #[arg(long, value_name = "CHAT", value_hint = ValueHint::Other)]
+    pub keep: Vec<String>,
+    /// List this chat again in the account that deleted it.
+    #[arg(long, value_name = "CHAT", value_hint = ValueHint::Other)]
+    pub restore: Vec<String>,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -2278,6 +2309,7 @@ pub fn common_of(command: &Command) -> CommonArgs {
                     flags_only(args.flags.dry_run, args.flags.yes)
                 }
                 Some(SyncAction::Rm(args)) => flags_only(args.flags.dry_run, args.flags.yes),
+                Some(SyncAction::Decide(args)) => flags_only(args.flags.dry_run, args.flags.yes),
                 Some(_) => flags_only(false, false),
             },
         },
@@ -2584,6 +2616,27 @@ pub fn command_args(command: &Command) -> Vec<String> {
                     vec!["watch".into(), args.profile.clone().unwrap_or_default()]
                 }
                 Some(SyncAction::Log(_)) => vec!["log".into()],
+                Some(SyncAction::Pending(args)) => {
+                    vec!["pending".into(), args.profile.clone().unwrap_or_default()]
+                }
+                Some(SyncAction::Decide(args)) => std::iter::once("decide".to_string())
+                    .chain(std::iter::once(args.name.clone()))
+                    .chain(
+                        args.remove
+                            .iter()
+                            .flat_map(|chat| ["--remove".to_string(), chat.clone()]),
+                    )
+                    .chain(
+                        args.keep
+                            .iter()
+                            .flat_map(|chat| ["--keep".to_string(), chat.clone()]),
+                    )
+                    .chain(
+                        args.restore
+                            .iter()
+                            .flat_map(|chat| ["--restore".to_string(), chat.clone()]),
+                    )
+                    .collect(),
                 Some(SyncAction::Auto(args)) => vec![
                     "auto".into(),
                     match args.action {

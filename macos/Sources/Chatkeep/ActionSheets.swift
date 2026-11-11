@@ -50,6 +50,7 @@ struct ActionSheetView: View {
             )
         case .copyAccountChats(let from): CopyAccountChatsSheet(from: from)
         case .syncNow(let profile): SyncNowSheet(profile: profile)
+        case .decideSync(let profile): SyncDecisionsSheet(profile: profile)
         case .editSyncProfile(let name, let adding): SyncProfileSheet(name: name, adding: adding)
         case .removeFromSyncProfile(let name, let members): SimpleWriteSheet(
                 title: members.isEmpty ? "Remove Sync Profile \u{201C}\(name)\u{201D}" : "Remove from \u{201C}\(name)\u{201D}",

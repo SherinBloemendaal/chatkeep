@@ -182,6 +182,18 @@ struct DecodingTests {
         #expect(entry.changed == ["lastActivityAt"])
         #expect(entry.times == 1)
 
+        let pending = try #require(try Fixture.decode("claude-sync-pending", as: SyncPending.self).data)
+        #expect(pending.count == 2)
+        #expect(pending.profiles.map(\.name) == ["main", "broken"])
+        #expect(pending.profiles.last?.error == "sync profile broken: account 5c91aa07/org has no chat list on this machine")
+        let chat = try #require(pending.profiles.first?.chats.first)
+        #expect(chat.title == "Plan the release")
+        #expect(chat.deletedIn == ["9efbfc68-3574-4c71-94bc-b94c905d05d0/3ab1ac9b-9a6b-4b53-9ca1-4205d57ee19d"])
+        #expect(chat.listedIn == ["1d2c3b4a-0000-4000-8000-000000000001/d68212da-94ca-4311-9743-1c72b0f9362b"])
+        #expect(chat.removeWaits == false)
+        #expect(pending.profiles.first?.chats.last?.title == nil)
+        #expect(pending.profiles.first?.chats.last?.removeWaits == true)
+
         let status = try #require(try Fixture.decode("claude-sync-auto-status", as: AutoSyncStatus.self).data)
         #expect(status.installed)
         #expect(status.running == false)

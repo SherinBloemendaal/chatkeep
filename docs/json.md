@@ -131,7 +131,8 @@ already queued.
 `cursor cache scan`, `cursor cache stats`, `claude accounts ls`, `claude accounts cp`,
 `claude accounts name`, `claude accounts doctor`, `claude accounts prune`, `claude cache clear`,
 `claude cache stats`, `claude sync` (running a sync), `claude sync profiles`, `claude sync set`,
-`claude sync add`, `claude sync rm`, `claude sync log`, `claude sync auto on`,
+`claude sync add`, `claude sync rm`, `claude sync log`, `claude sync pending`,
+`claude sync decide`, `claude sync auto on`,
 `claude sync auto off`, `claude sync auto status`, and `version`.
 
 ## Values
@@ -953,6 +954,38 @@ One result, `tool: "claude"`. `data`:
 }
 ```
 
+### `claude sync pending`
+
+`chatkeep claude sync pending --json [PROFILE]`
+
+The chats that one account deleted while another account of the profile still lists them. They
+wait for a decision. One result, `tool: "claude"`. `data` is `{"profiles": [...]}`, one row per
+sync profile:
+
+| Field   | Type           | Meaning                                                    |
+| ------- | -------------- | ---------------------------------------------------------- |
+| `name`  | string         | The sync profile.                                          |
+| `error` | string or null | Why this profile could not be read. `chats` is then empty. |
+| `chats` | array          | The chats that wait, see below.                            |
+
+Each chat:
+
+| Field          | Type            | Meaning                                                                |
+| -------------- | --------------- | ---------------------------------------------------------------------- |
+| `chat`         | string          | The chat id, to pass to `claude sync decide`.                          |
+| `title`        | string or null  | The chat title.                                                        |
+| `deleted_in`   | array of string | The `account/organization` of every account that deleted it.           |
+| `listed_in`    | array of string | The `account/organization` of every account that still lists it.       |
+| `remove_waits` | bool            | Removing it has to wait: the desktop app is open with such an account. |
+
+### `claude sync decide`
+
+`chatkeep claude sync decide --json NAME [--remove CHAT]... [--keep CHAT]... [--restore CHAT]... -y|-n`
+
+A write: it answers with a report like `claude sync`. `--remove` takes the chat out of the
+accounts that still list it, `--keep` leaves it there and stops asking, `--restore` lists it
+again in the account that deleted it. A chat is its id or the start of it.
+
 ### `claude sync log`
 
 `chatkeep claude sync log --json [--last N]` (default 30)
@@ -963,7 +996,7 @@ One result, `tool: "claude"`. `data` is `{"entries": [...]}`, the newest N, olde
 | --------- | --------------- | ------------------------------------------------------------------ |
 | `at`      | time or null    | When (the last time, for a repeated change).                       |
 | `profile` | string or null  | The sync profile.                                                  |
-| `action`  | string          | `add`, `update`, `remove`, or `note` (a message from the watcher). |
+| `action`  | string          | `add`, `update`, `remove`, `keep`, or `note` (from the watcher).   |
 | `chat`    | string or null  | The chat id.                                                       |
 | `title`   | string or null  | The chat title, or the text of a note.                             |
 | `account` | string or null  | The `account/organization` whose list changed.                     |

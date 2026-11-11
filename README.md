@@ -185,6 +185,8 @@ Without `--tool`, a command that names a project runs for every tool that has it
 | `chatkeep claude sync watch [PROFILE]`           | Keep syncing whenever a chat list changes, until stopped.              |
 | `chatkeep claude sync auto on\|off\|status`      | Run that watcher in the background from login on.                      |
 | `chatkeep claude sync log`                       | Show what the syncs changed: which chat, how, for which account.       |
+| `chatkeep claude sync pending [PROFILE]`         | Show the chats deleted in one account and still listed in another.     |
+| `chatkeep claude sync decide NAME ...`           | Remove those chats everywhere, keep them, or put them back.            |
 | `chatkeep claude cache clear\|stats`             | Clear or inspect the index of the transcripts.                         |
 
 See [Claude Code](#-claude-code) for what each of these does.
@@ -413,7 +415,7 @@ Inside a profile the sync goes both ways:
 
 - **Add.** A chat one account lists is listed by all of them.
 - **Update.** When two accounts hold a different entry for the same chat (a new title, pinned, archived), the entry whose file changed last wins. The copy keeps that file time, and each account keeps what belongs to it (its remote session and its connectors).
-- **Remove, only after you say yes.** A chat that an account listed at the last sync and no longer lists was deleted there. It is never added back. It leaves the other accounts only when you run `chatkeep claude sync` in a terminal and confirm; `-y`, the watcher, and the background runner never remove anything.
+- **Remove, only after you say yes.** A chat that an account listed at the last sync and no longer lists was deleted there. It is never added back. It leaves the other accounts only when you say so: run `chatkeep claude sync` in a terminal and confirm, or decide per chat. `chatkeep claude sync pending` lists the chats that wait, and `chatkeep claude sync decide NAME --remove ID --keep ID --restore ID` removes a chat from the other accounts, keeps it there and stops asking, or lists it again in the account that deleted it. The Chatkeep app asks the same on its Accounts & Sync page. `-y` on a sync, the watcher, and the background runner never remove anything.
 
 While the desktop app is open, changes to entries of the account it is signed in with wait, because the app would write its own copy back; new chats are still added, and show after a restart of the app. Everything for the other accounts happens at once.
 

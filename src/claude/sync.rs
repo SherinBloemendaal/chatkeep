@@ -26,8 +26,8 @@ use crate::engine::fsops::{exists, write_atomic};
 use crate::ui;
 
 /// Words `chatkeep claude sync` takes as actions, so no profile may carry them.
-const RESERVED: [&str; 9] = [
-    "profiles", "ls", "list", "set", "add", "rm", "watch", "auto", "log",
+const RESERVED: [&str; 11] = [
+    "profiles", "ls", "list", "set", "add", "rm", "watch", "auto", "log", "pending", "decide",
 ];
 
 pub fn config_path(home: &Path) -> PathBuf {
@@ -189,6 +189,11 @@ pub struct Profile {
     /// longer listed was deleted in that account.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub known: BTreeMap<String, BTreeSet<String>>,
+    /// Chats the user chose to keep though an account deleted them, each with the accounts
+    /// that had deleted it then. Such a chat is not asked about again and never added back to
+    /// those accounts. When another account deletes it later, it waits for a decision again.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub kept: BTreeMap<String, BTreeSet<String>>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -359,9 +364,15 @@ fn store_profile(rt: &Runtime, name: &str, labels: Vec<String>) -> Result<Profil
                 .collect()
         })
         .unwrap_or_default();
+    let kept = config
+        .profiles
+        .get(name)
+        .map(|old| old.kept.clone())
+        .unwrap_or_default();
     let profile = Profile {
         accounts: labels,
         known,
+        kept,
     };
     if !rt.dry_run {
         config.profiles.insert(name.to_string(), profile.clone());
@@ -526,6 +537,31 @@ pub struct Step {
     pub changed: Vec<String>,
 }
 
+/// What the user wants for a chat that one account deleted and another still lists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Choice {
+    /// Remove it from the accounts that still list it.
+    Remove,
+    /// Leave it where it is still listed, and stop asking.
+    Keep,
+    /// List it again in the account that deleted it.
+    Restore,
+}
+
+/// A chat that waits for a decision.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Pending {
+    pub chat: String,
+    pub title: String,
+    /// `account/organization` of every account that deleted it.
+    pub deleted_in: Vec<String>,
+    /// `account/organization` of every account that still lists it.
+    pub listed_in: Vec<String>,
+    /// The desktop app is open with an account that still lists it, so removing it has to
+    /// wait. Keeping it or putting it back does not.
+    pub remove_waits: bool,
+}
+
 #[derive(Debug, Clone)]
 pub struct Plan {
     pub name: String,
@@ -534,6 +570,8 @@ pub struct Plan {
     pub steps: Vec<Step>,
     /// Entries of chats that were deleted in another account. They only go after a yes.
     pub removals: Vec<Step>,
+    /// Per chat in `removals`, the accounts that deleted it.
+    deleted: BTreeMap<String, Vec<String>>,
     /// Chats other accounts list that have no transcript on this machine.
     pub without_transcript: usize,
     listings: Vec<(String, PathBuf)>,
@@ -547,6 +585,26 @@ impl Plan {
     /// Steps that can run now.
     pub fn ready(&self) -> impl Iterator<Item = &Step> {
         self.steps.iter().filter(|step| !step.waits)
+    }
+
+    /// The chats that wait for a decision: deleted in one account, still listed in another.
+    pub fn pending(&self) -> Vec<Pending> {
+        let mut found: BTreeMap<&str, Pending> = BTreeMap::new();
+        for step in &self.removals {
+            let entry = found.entry(step.chat.as_str()).or_insert_with(|| Pending {
+                chat: step.chat.clone(),
+                title: step.title.clone(),
+                deleted_in: self.deleted.get(&step.chat).cloned().unwrap_or_default(),
+                listed_in: Vec::new(),
+                remove_waits: false,
+            });
+            if entry.title.is_empty() {
+                entry.title = step.title.clone();
+            }
+            entry.listed_in.push(step.account.clone());
+            entry.remove_waits |= step.waits;
+        }
+        found.into_values().collect()
     }
 
     pub fn waiting(&self) -> usize {
@@ -628,20 +686,37 @@ pub fn plan(rt: &Runtime, name: &str, profile: &Profile) -> Result<Plan> {
     let empty = BTreeSet::new();
     let mut steps = Vec::new();
     let mut removals = Vec::new();
+    let mut deleted = BTreeMap::new();
     let mut without_transcript = 0usize;
     for chat in chats {
         let holders: Vec<usize> = (0..listings.len())
             .filter(|index| entries[*index].contains_key(chat))
             .collect();
-        let deleted_somewhere = (0..listings.len()).any(|index| {
-            !entries[index].contains_key(chat)
-                && profile
-                    .known
-                    .get(&listings[index].0)
-                    .unwrap_or(&empty)
-                    .contains(chat)
+        let deleted_in: Vec<usize> = (0..listings.len())
+            .filter(|index| {
+                !entries[*index].contains_key(chat)
+                    && profile
+                        .known
+                        .get(&listings[*index].0)
+                        .unwrap_or(&empty)
+                        .contains(chat)
+            })
+            .collect();
+        // A chat the user chose to keep syncs on between the other accounts, as long as no
+        // account deleted it since.
+        let kept = profile.kept.get(chat).is_some_and(|accounts| {
+            deleted_in
+                .iter()
+                .all(|index| accounts.contains(&listings[*index].0))
         });
-        if deleted_somewhere {
+        if !deleted_in.is_empty() && !kept {
+            deleted.insert(
+                chat.clone(),
+                deleted_in
+                    .iter()
+                    .map(|index| listings[*index].0.clone())
+                    .collect(),
+            );
             for index in holders {
                 let entry = &entries[index][chat];
                 removals.push(Step {
@@ -697,6 +772,9 @@ pub fn plan(rt: &Runtime, name: &str, profile: &Profile) -> Result<Plan> {
                     });
                 }
                 None => {
+                    if deleted_in.contains(&index) {
+                        continue;
+                    }
                     if !on_disk.contains(chat) {
                         without_transcript += 1;
                         continue;
@@ -728,6 +806,7 @@ pub fn plan(rt: &Runtime, name: &str, profile: &Profile) -> Result<Plan> {
         profile: profile.clone(),
         steps,
         removals,
+        deleted,
         without_transcript,
         listings,
     })
@@ -775,7 +854,7 @@ pub fn execute(rt: &Runtime, plan: &Plan, remove: bool, source: &str) -> Result<
         .collect();
     if !pending.is_empty() && !remove {
         report.warnings.push(format!(
-            "{} deleted in one account and still listed in another; run chatkeep claude sync {} in a terminal to decide",
+            "{} deleted in one account and still listed in another; decide with chatkeep claude sync decide {}, or in the Chatkeep app",
             ui::plural(pending.len(), "chat was", "chats were"),
             plan.name
         ));
@@ -789,59 +868,228 @@ pub fn execute(rt: &Runtime, plan: &Plan, remove: bool, source: &str) -> Result<
     if rt.dry_run {
         return Ok(report);
     }
-    if !run.is_empty() {
-        in_journal(rt, "claude-sync", |journal| {
-            for step in &run {
-                match (&step.action, &step.content) {
-                    (Action::Remove, _) => journal.stash(&step.dest)?,
-                    (action, Some((text, modified))) => {
-                        if *action == Action::Add {
-                            journal.created(&step.dest)?;
-                        } else {
-                            journal.save(&step.dest)?;
-                        }
-                        let permissions =
-                            fs::metadata(&step.dest).ok().map(|meta| meta.permissions());
-                        write_atomic(&step.dest, text.as_bytes())?;
-                        if let Some(permissions) = permissions {
-                            fs::set_permissions(&step.dest, permissions)?;
-                        }
-                        // The copy is as old as the entry it came from, so the next sync
-                        // does not mistake it for a newer change.
-                        fs::File::options()
-                            .write(true)
-                            .open(&step.dest)
-                            .and_then(|file| file.set_modified(*modified))
-                            .with_context(|| {
-                                format!("failed to set the time of {}", step.dest.display())
-                            })?;
+    write_steps(rt, &plan.name, &run, source)?;
+    remember(rt, plan)?;
+    Ok(report)
+}
+
+/// Make the list changes of `run` in one journal entry, and log each under `source`.
+fn write_steps(rt: &Runtime, name: &str, run: &[&Step], source: &str) -> Result<()> {
+    if run.is_empty() {
+        return Ok(());
+    }
+    in_journal(rt, "claude-sync", |journal| {
+        for step in run {
+            match (&step.action, &step.content) {
+                (Action::Remove, _) => journal.stash(&step.dest)?,
+                (action, Some((text, modified))) => {
+                    if *action == Action::Add {
+                        journal.created(&step.dest)?;
+                    } else {
+                        journal.save(&step.dest)?;
                     }
-                    (_, None) => {}
+                    let permissions = fs::metadata(&step.dest).ok().map(|meta| meta.permissions());
+                    write_atomic(&step.dest, text.as_bytes())?;
+                    if let Some(permissions) = permissions {
+                        fs::set_permissions(&step.dest, permissions)?;
+                    }
+                    // The copy is as old as the entry it came from, so the next sync
+                    // does not mistake it for a newer change.
+                    fs::File::options()
+                        .write(true)
+                        .open(&step.dest)
+                        .and_then(|file| file.set_modified(*modified))
+                        .with_context(|| {
+                            format!("failed to set the time of {}", step.dest.display())
+                        })?;
                 }
+                (_, None) => {}
             }
-            Ok(())
-        })?;
-        let at = chrono::Utc::now().to_rfc3339();
-        let entries: Vec<LogEntry> = run
-            .iter()
-            .map(|step| LogEntry {
-                at: at.clone(),
-                profile: plan.name.clone(),
-                action: step.action.verb().to_string(),
-                chat: step.chat.clone(),
-                title: step.title.clone(),
-                account: step.account.clone(),
-                source: source.to_string(),
-                changed: step.changed.clone(),
-                times: 1,
-            })
-            .collect();
-        // The changes are made; a log that cannot be written must not undo them.
-        if let Err(err) = append_log(&rt.layout.chatkeep_home, &entries) {
-            ui::warn(&format!("the sync log was not written: {err:#}"));
+        }
+        Ok(())
+    })?;
+    let at = chrono::Utc::now().to_rfc3339();
+    let entries: Vec<LogEntry> = run
+        .iter()
+        .map(|step| LogEntry {
+            at: at.clone(),
+            profile: name.to_string(),
+            action: step.action.verb().to_string(),
+            chat: step.chat.clone(),
+            title: step.title.clone(),
+            account: step.account.clone(),
+            source: source.to_string(),
+            changed: step.changed.clone(),
+            times: 1,
+        })
+        .collect();
+    // The changes are made; a log that cannot be written must not undo them.
+    if let Err(err) = append_log(&rt.layout.chatkeep_home, &entries) {
+        ui::warn(&format!("the sync log was not written: {err:#}"));
+    }
+    Ok(())
+}
+
+/// Carry out what the user decided for chats that one account deleted and another still
+/// lists. Each of `choices` names a waiting chat by its id or the start of it. A removal for
+/// the account the desktop app is open with waits, as in a sync.
+pub fn decide(rt: &Runtime, name: &str, choices: &[(String, Choice)]) -> Result<Report> {
+    let home = &rt.layout.chatkeep_home;
+    let config = load(home)?;
+    let profile = selected(&config, Some(name))?.remove(0).1;
+    let before = plan(rt, name, &profile)?;
+    let pending = before.pending();
+    let mut chosen: BTreeMap<String, Choice> = BTreeMap::new();
+    for (spec, choice) in choices {
+        let exact: Vec<&Pending> = pending.iter().filter(|chat| chat.chat == *spec).collect();
+        let matches = if exact.is_empty() && !spec.is_empty() {
+            pending
+                .iter()
+                .filter(|chat| chat.chat.starts_with(spec.as_str()))
+                .collect()
+        } else {
+            exact
+        };
+        let [found] = matches.as_slice() else {
+            return Err(ui::hinted(
+                if matches.is_empty() {
+                    format!("no chat {spec:?} waits for a decision in profile {name}")
+                } else {
+                    format!(
+                        "{spec:?} is the start of more than one chat that waits in profile {name}"
+                    )
+                },
+                format!("Run chatkeep claude sync pending {name} to see the chats that wait."),
+            ));
+        };
+        match chosen.insert(found.chat.clone(), *choice) {
+            Some(earlier) if earlier != *choice => {
+                bail!("chat {} got two different decisions", found.chat)
+            }
+            _ => {}
         }
     }
-    remember(rt, plan)?;
+
+    let wants = |chat: &str, choice: Choice| chosen.get(chat) == Some(&choice);
+    let mut updated = profile.clone();
+    for chat in &pending {
+        if wants(&chat.chat, Choice::Keep) {
+            updated
+                .kept
+                .entry(chat.chat.clone())
+                .or_default()
+                .extend(chat.deleted_in.iter().cloned());
+        }
+        if wants(&chat.chat, Choice::Restore) {
+            for account in &chat.deleted_in {
+                if let Some(keys) = updated.known.get_mut(account) {
+                    keys.remove(&chat.chat);
+                }
+            }
+        }
+    }
+    let mut after = plan(rt, name, &updated)?;
+    // A chat without a transcript here cannot be listed again: it keeps waiting.
+    let mut stuck = 0usize;
+    for chat in &pending {
+        let restorable = after
+            .steps
+            .iter()
+            .any(|step| step.action == Action::Add && step.chat == chat.chat);
+        if wants(&chat.chat, Choice::Restore) && !restorable {
+            stuck += 1;
+            for account in &chat.deleted_in {
+                updated
+                    .known
+                    .entry(account.clone())
+                    .or_default()
+                    .insert(chat.chat.clone());
+            }
+        }
+    }
+    after.profile = updated.clone();
+
+    let mut run: Vec<&Step> = before
+        .removals
+        .iter()
+        .filter(|step| !step.waits && wants(&step.chat, Choice::Remove))
+        .collect();
+    run.extend(
+        after
+            .steps
+            .iter()
+            .filter(|step| step.action == Action::Add && wants(&step.chat, Choice::Restore)),
+    );
+    let mut report = Report::default();
+    describe(&before, &run, &mut report);
+    let mut keeps: BTreeMap<&str, usize> = BTreeMap::new();
+    for chat in pending
+        .iter()
+        .filter(|chat| wants(&chat.chat, Choice::Keep))
+    {
+        for account in &chat.listed_in {
+            *keeps.entry(account.as_str()).or_default() += 1;
+        }
+    }
+    for (account, count) in &keeps {
+        report.applied.push(format!(
+            "keep {} ({name}) in {}",
+            ui::plural(*count, "chat", "chats"),
+            short(account)
+        ));
+    }
+    let waiting = pending
+        .iter()
+        .filter(|chat| chat.remove_waits && wants(&chat.chat, Choice::Remove))
+        .count();
+    if waiting > 0 {
+        report.warnings.push(format!(
+            "{} for the account the desktop app is open with; quit the app and decide again",
+            ui::plural(waiting, "removal waits", "removals wait")
+        ));
+    }
+    if stuck > 0 {
+        report.warnings.push(format!(
+            "{} cannot be put back: no transcript on this machine",
+            ui::plural(stuck, "chat", "chats")
+        ));
+    }
+    if rt.dry_run {
+        return Ok(report);
+    }
+
+    write_steps(rt, name, &run, "manual")?;
+    let at = chrono::Utc::now().to_rfc3339();
+    let entries: Vec<LogEntry> = pending
+        .iter()
+        .filter(|chat| wants(&chat.chat, Choice::Keep))
+        .flat_map(|chat| {
+            let at = at.clone();
+            chat.listed_in.iter().map(move |account| LogEntry {
+                at: at.clone(),
+                profile: name.to_string(),
+                action: "keep".to_string(),
+                chat: chat.chat.clone(),
+                title: chat.title.clone(),
+                account: account.clone(),
+                source: "manual".to_string(),
+                changed: Vec::new(),
+                times: 1,
+            })
+        })
+        .collect();
+    if !entries.is_empty()
+        && let Err(err) = append_log(home, &entries)
+    {
+        ui::warn(&format!("the sync log was not written: {err:#}"));
+    }
+    let mut config = load(home)?;
+    if let Some(stored) = config.profiles.get_mut(name) {
+        stored.known = updated.known.clone();
+        stored.kept = updated.kept.clone();
+        save(home, &config)?;
+    }
+    remember(rt, &after)?;
     Ok(report)
 }
 
@@ -867,8 +1115,29 @@ fn remember(rt: &Runtime, plan: &Plan) -> Result<()> {
     let Some(profile) = config.profiles.get_mut(&plan.name) else {
         return Ok(());
     };
-    if profile.known != known {
+    // A kept chat no account lists anymore has nothing left to keep, and an account that
+    // lists it again no longer counts as having deleted it.
+    let kept: BTreeMap<String, BTreeSet<String>> = profile
+        .kept
+        .iter()
+        .filter(|(chat, _)| listed.contains(chat))
+        .filter_map(|(chat, accounts)| {
+            let still: BTreeSet<String> = accounts
+                .iter()
+                .filter(|account| {
+                    plan.listings
+                        .iter()
+                        .position(|(label, _)| label == *account)
+                        .is_some_and(|index| !now[index].contains(chat))
+                })
+                .cloned()
+                .collect();
+            (!still.is_empty()).then(|| (chat.clone(), still))
+        })
+        .collect();
+    if profile.known != known || profile.kept != kept {
         profile.known = known;
+        profile.kept = kept;
         save(home, &config)?;
     }
     Ok(())

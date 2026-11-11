@@ -68,6 +68,16 @@ public enum PathChange: Sendable, Hashable {
     case replace(from: String, to: String, regex: Bool)
 }
 
+/// What happens to a chat that one account deleted while another still lists it.
+public enum SyncDecision: String, Sendable, Hashable, CaseIterable {
+    /// Remove it from the accounts that still list it.
+    case remove
+    /// Leave it where it is still listed, and stop asking.
+    case keep
+    /// List it again in the account that deleted it.
+    case restore
+}
+
 /// Whether `combine` keeps the chats in the sources.
 public enum TransferMode: Sendable, Hashable {
     case copy
@@ -168,6 +178,11 @@ public enum CLI {
 
     public static func syncLog(last: Int = 30) -> Command<SyncLog> {
         Command(Arguments(words: ["claude", "sync", "log"], options: ["--last", String(max(last, 1))]), changesData: false)
+    }
+
+    /// The chats that wait for a decision: one profile, or every profile when `profile` is `nil`.
+    public static func syncPending(profile: String? = nil) -> Command<SyncPending> {
+        Command(Arguments(words: ["claude", "sync", "pending"], positionals: profile.map { [$0] } ?? []), changesData: false)
     }
 
     public static func syncAutoStatus() -> Command<AutoSyncStatus> {
@@ -289,6 +304,15 @@ public enum CLI {
     /// Run a sync now: one profile, or every profile when `profile` is `nil`.
     public static func sync(profile: String? = nil) -> WriteCommand<Report> {
         WriteCommand(arguments: Arguments(words: ["claude", "sync"], positionals: profile.map { [$0] } ?? []))
+    }
+
+    /// Carry out the decisions for chats that wait in `profile`, by chat id. The ids go in
+    /// `--option=id` form and in a fixed order, so the same decisions make the same command.
+    public static func decideSync(_ profile: String, decisions: [String: SyncDecision]) -> WriteCommand<Report> {
+        let options = SyncDecision.allCases.flatMap { decision in
+            decisions.filter { $0.value == decision }.keys.sorted().map { "--\(decision.rawValue)=\($0)" }
+        }
+        return WriteCommand(arguments: Arguments(words: ["claude", "sync", "decide"], options: options, positionals: [profile]))
     }
 
     /// Create or replace a sync profile with exactly these accounts.

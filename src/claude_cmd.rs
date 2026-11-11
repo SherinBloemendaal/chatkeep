@@ -111,6 +111,10 @@ pub fn perform(rt: &claude::Runtime, command: Command) -> Result<Outcome> {
                 }
                 Some(SyncAction::Auto(args)) => auto_sync(rt, &args.action),
                 Some(SyncAction::Log(args)) => Ok(text(sync_log(rt, args.last)?)),
+                Some(SyncAction::Pending(args)) => {
+                    Ok(text(sync_pending(rt, args.profile.as_deref())?))
+                }
+                Some(SyncAction::Decide(args)) => decide_sync(rt, args),
             },
         },
         Command::Cursor(_) => bail!("chatkeep cursor commands only work on Cursor"),
@@ -719,6 +723,90 @@ fn run_sync(rt: &claude::Runtime, name: Option<&str>) -> Result<Outcome> {
         report.warnings.extend(done.warnings);
     }
     Ok(finished(rt, "Sync (Claude Code)", report))
+}
+
+/// `claude sync pending`: the chats one account deleted and another still lists.
+fn sync_pending(rt: &claude::Runtime, name: Option<&str>) -> Result<String> {
+    let theme = Theme::stdout();
+    let config = sync::load(&rt.layout.chatkeep_home)?;
+    let mut out = String::new();
+    for (name, profile) in sync::selected(&config, name)? {
+        let pending = sync::plan(rt, &name, &profile)?.pending();
+        if pending.is_empty() {
+            out.push_str(&ui::info_line(
+                theme,
+                &format!("{name}: no chat waits for a decision."),
+            ));
+            out.push('\n');
+            continue;
+        }
+        let rows: Vec<Vec<String>> = pending
+            .iter()
+            .map(|chat| {
+                vec![
+                    if chat.title.is_empty() {
+                        "Untitled".to_string()
+                    } else {
+                        chat.title.clone()
+                    },
+                    chat.chat.clone(),
+                    chat.deleted_in.join(", "),
+                    chat.listed_in.join(", "),
+                ]
+            })
+            .collect();
+        out.push_str(&validation(
+            theme,
+            &format!("Waiting for a decision in {name}"),
+            &["chat", "id", "deleted in", "still listed in"],
+            &rows,
+            &[],
+        ));
+        out.push_str(&ui::hint_line(
+            theme,
+            &format!(
+                "Decide with: chatkeep claude sync decide {name} --remove ID --keep ID --restore ID"
+            ),
+        ));
+        out.push('\n');
+    }
+    Ok(out)
+}
+
+/// `claude sync decide NAME`: remove, keep or put back chats that wait for a decision.
+fn decide_sync(rt: &claude::Runtime, args: cli::SyncDecideArgs) -> Result<Outcome> {
+    let mut choices: Vec<(String, sync::Choice)> = Vec::new();
+    for (chats, choice) in [
+        (&args.remove, sync::Choice::Remove),
+        (&args.keep, sync::Choice::Keep),
+        (&args.restore, sync::Choice::Restore),
+    ] {
+        choices.extend(chats.iter().map(|chat| (chat.clone(), choice)));
+    }
+    if choices.is_empty() {
+        return Err(ui::hinted(
+            "no decision given",
+            format!(
+                "Name the chats: chatkeep claude sync decide {name} --remove ID --keep ID --restore ID. chatkeep claude sync pending {name} shows them.",
+                name = args.name
+            ),
+        ));
+    }
+    if !rt.dry_run && !rt.yes {
+        let mut preview = rt.clone();
+        preview.dry_run = true;
+        let planned = sync::decide(&preview, &args.name, &choices)?;
+        if !rt.quiet {
+            for line in planned.applied.iter().chain(&planned.warnings) {
+                println!("{}", ui::info_line(Theme::stdout(), line));
+            }
+        }
+        if !ui::confirm("Apply these decisions?", rt.yes, rt.interactive)? {
+            bail!("aborted");
+        }
+    }
+    let report = sync::decide(rt, &args.name, &choices)?;
+    Ok(finished(rt, "Sync decisions (Claude Code)", report))
 }
 
 fn sync_profiles(rt: &claude::Runtime) -> Result<String> {

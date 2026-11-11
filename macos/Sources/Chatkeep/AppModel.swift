@@ -57,6 +57,7 @@ enum Action {
     case clearQueue
     case copyAccountChats(from: Account?)
     case syncNow(profile: String?)
+    case decideSync(profile: String)
     case editSyncProfile(name: String?, adding: Bool)
     case removeFromSyncProfile(name: String, members: [String])
 }
@@ -163,7 +164,7 @@ final class AppModel {
         projects.reload()
         queue.load()
         if history.list.hasLoaded { history.load() }
-        if accounts.list.hasLoaded { accounts.loadAll() }
+        if accounts.list.hasLoaded { accounts.loadAll() } else { accounts.loadPending() }
         if maintenance.cursorIndex.hasLoaded || maintenance.claudeIndex.hasLoaded { maintenance.load() }
     }
 

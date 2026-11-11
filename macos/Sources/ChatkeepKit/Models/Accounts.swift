@@ -115,6 +115,37 @@ public struct SyncProfiles: Codable, Sendable, Hashable, ResultPayload {
     public var auto: AutoSyncStatus
 }
 
+/// `claude sync pending`: the chats one account deleted while another account of the same
+/// profile still lists them. They wait for a decision.
+public struct SyncPending: Codable, Sendable, Hashable, ResultPayload {
+    public struct Chat: Codable, Sendable, Hashable, Identifiable {
+        public var chat: String
+        public var title: String?
+        /// The `account/organization` of every account that deleted it.
+        public var deletedIn: [String]
+        /// The `account/organization` of every account that still lists it.
+        public var listedIn: [String]
+        /// Removing it has to wait: the desktop app is open with an account that lists it.
+        public var removeWaits: Bool
+
+        public var id: String { chat }
+    }
+
+    public struct Profile: Codable, Sendable, Hashable, Identifiable {
+        public var name: String
+        /// Why this profile could not be read; `chats` is then empty.
+        public var error: String?
+        public var chats: [Chat]
+
+        public var id: String { name }
+    }
+
+    public var profiles: [Profile]
+
+    /// How many chats wait, over every profile.
+    public var count: Int { profiles.reduce(0) { $0 + $1.chats.count } }
+}
+
 /// `claude sync auto status`: whether the background sync runs.
 public struct AutoSyncStatus: Codable, Sendable, Hashable, ResultPayload {
     public enum State: TolerantValue {
@@ -151,18 +182,21 @@ public struct SyncLog: Codable, Sendable, Hashable, ResultPayload {
             case add
             case update
             case remove
+            /// A deleted chat the user chose to keep where it is still listed.
+            case keep
             /// A message from the watcher; `title` holds its text.
             case note
             /// A word this app does not know yet, as the tool wrote it.
             case unknown(String)
 
-            public static let known: [Self] = [.add, .update, .remove, .note]
+            public static let known: [Self] = [.add, .update, .remove, .keep, .note]
 
             public var rawValue: String {
                 switch self {
                 case .add: "add"
                 case .update: "update"
                 case .remove: "remove"
+                case .keep: "keep"
                 case .note: "note"
                 case .unknown(let raw): raw
                 }

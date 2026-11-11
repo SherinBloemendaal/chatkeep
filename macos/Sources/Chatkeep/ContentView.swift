@@ -16,7 +16,7 @@ struct ContentView: View {
                     row(.stats)
                 }
                 Section("Claude Desktop App") {
-                    row(.accounts)
+                    row(.accounts, badge: app.accounts.pendingCount)
                 }
                 Section {
                     row(.maintenance)
@@ -58,10 +58,13 @@ struct ContentView: View {
         .errorAlert($app.notice)
         .task {
             app.queue.load()
+            app.accounts.loadPending()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            // The queue changes from the terminal too; keep the badge right.
+            // The queue changes from the terminal too, and chats are deleted in the Claude app;
+            // keep both badges right.
             app.queue.load()
+            app.accounts.loadPending()
         }
     }
 

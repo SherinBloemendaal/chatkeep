@@ -91,6 +91,8 @@ fn unguarded_sample(leaf: &[&str]) -> Option<Vec<String>> {
         ["claude", "sync", "rm"] => &["claude", "sync", "rm", "work"],
         ["claude", "sync", "watch"] => &["claude", "sync", "watch"],
         ["claude", "sync", "log"] => &["claude", "sync", "log"],
+        ["claude", "sync", "pending"] => &["claude", "sync", "pending"],
+        ["claude", "sync", "decide"] => &["claude", "sync", "decide", "work", "--keep", "a"],
         ["claude", "sync", "auto", "on"] => &["claude", "sync", "auto", "on"],
         ["claude", "sync", "auto", "off"] => &["claude", "sync", "auto", "off"],
         ["claude", "sync", "auto", "status"] => &["claude", "sync", "auto", "status"],

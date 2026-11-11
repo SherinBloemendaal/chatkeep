@@ -54,6 +54,10 @@ pub fn perform(rt: &claude::Runtime, command: Command) -> Result<Value> {
                 action: Some(SyncAction::Auto(args)),
                 ..
             }) => auto(rt, &args.action),
+            ClaudeCommand::Sync(cli::SyncArgs {
+                action: Some(SyncAction::Pending(args)),
+                ..
+            }) => pending(rt, args.profile.as_deref()),
             command => finished(claude_cmd::perform(
                 rt,
                 Command::Claude(cli::ClaudeArgs { command }),
@@ -362,6 +366,34 @@ fn profiles(rt: &claude::Runtime) -> Result<Value> {
         "profiles": profiles,
         "auto": auto_status(rt)?,
     }))
+}
+
+/// The chats that wait for a decision, per profile. A profile that cannot be read says why
+/// instead of hiding the others.
+fn pending(rt: &claude::Runtime, name: Option<&str>) -> Result<Value> {
+    let config = sync::load(&rt.layout.chatkeep_home)?;
+    let profiles: Vec<Value> = match sync::selected(&config, name) {
+        Ok(selected) => selected,
+        Err(_) if name.is_none() => Vec::new(),
+        Err(err) => return Err(err),
+    }
+    .into_iter()
+    .map(|(name, profile)| match sync::plan(rt, &name, &profile) {
+        Ok(plan) => json!({
+            "name": name,
+            "error": Value::Null,
+            "chats": plan.pending().iter().map(|chat| json!({
+                "chat": chat.chat,
+                "title": (!chat.title.is_empty()).then(|| chat.title.clone()),
+                "deleted_in": chat.deleted_in,
+                "listed_in": chat.listed_in,
+                "remove_waits": chat.remove_waits,
+            })).collect::<Vec<_>>(),
+        }),
+        Err(err) => json!({"name": name, "error": format!("{err:#}"), "chats": []}),
+    })
+    .collect();
+    Ok(json!({"profiles": profiles}))
 }
 
 fn log(rt: &claude::Runtime, last: usize) -> Result<Value> {

@@ -26,6 +26,8 @@ struct CommandTests {
         #expect(CLI.syncProfiles().argv == ["--json", "claude", "sync", "profiles"])
         #expect(CLI.syncLog(last: 100).argv == ["--json", "claude", "sync", "log", "--last", "100"])
         #expect(CLI.syncAutoStatus().argv == ["--json", "claude", "sync", "auto", "status"])
+        #expect(CLI.syncPending().argv == ["--json", "claude", "sync", "pending"])
+        #expect(CLI.syncPending(profile: "work").argv == ["--json", "claude", "sync", "pending", "--", "work"])
     }
 
     @Test func onlyWritesAreNeverStopped() {
@@ -45,6 +47,9 @@ struct CommandTests {
             == ["--json", "claude", "accounts", "name", "--", "310c27f1", "work"])
         #expect(CLI.clearAccountName("310c27f1").argv
             == ["--json", "claude", "accounts", "name", "--clear", "--", "310c27f1"])
+        #expect(CLI.decideSync("work", decisions: ["b2": .remove, "a1": .remove, "c3": .keep, "d4": .restore]).command(.preview).argv
+            == ["--json", "claude", "sync", "decide", "-n", "--remove=a1", "--remove=b2", "--keep=c3", "--restore=d4", "--", "work"])
+        #expect(CLI.decideSync("work", decisions: ["c3": .keep]).command(.apply).changesData)
         #expect(CLI.autoSync(on: true).argv == ["--json", "claude", "sync", "auto", "on"])
         #expect(CLI.autoSync(on: false).argv == ["--json", "claude", "sync", "auto", "off"])
     }
