@@ -135,6 +135,8 @@ final class AppModel {
     var screen: Screen = .projects
     var presented: PresentedAction?
     var dropChoice: DropChoice?
+    /// Goes up each time Find is chosen; the page with a search field then puts the cursor in it.
+    var searchRequests = 0
     /// A message for the whole window, such as a drop that matched nothing.
     var notice: ChatkeepError?
 

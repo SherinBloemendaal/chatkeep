@@ -39,6 +39,8 @@ final class HistoryModel {
 
 struct HistoryView: View {
     @Bindable var model: HistoryModel
+    @Environment(AppModel.self) private var app
+    @FocusState private var searchFocused: Bool
 
     var body: some View {
         Table(model.rows, sortOrder: $model.sortOrder) {
@@ -69,6 +71,8 @@ struct HistoryView: View {
             .width(70)
         }
         .searchable(text: $model.search, placement: .toolbar, prompt: "Command or path")
+        .searchFocused($searchFocused)
+        .onChange(of: app.searchRequests) { searchFocused = true }
         .overlay {
             if model.list.isLoading, model.rows.isEmpty {
                 LoadingView(text: "Reading the history…")

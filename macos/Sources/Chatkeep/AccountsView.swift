@@ -30,6 +30,10 @@ final class AccountsModel {
     /// too, so before this page is opened.
     let pending = Loadable<SyncPending>()
     private(set) var isSwitchingAuto = false
+    /// The account whose name is being edited, and the name typed so far. Kept here so the
+    /// menu bar can start it as well as the page.
+    var renaming: Account?
+    var newName = ""
     var actionError: ChatkeepError?
 
     init(runner: ChatkeepRunner) {
@@ -105,6 +109,11 @@ final class AccountsModel {
         }
     }
 
+    func startRenaming(_ account: Account) {
+        newName = account.name ?? ""
+        renaming = account
+    }
+
     /// `claude accounts name`: an empty name removes the name.
     func rename(_ account: Account, to name: String) {
         let command = name.trimmedOrNil.map { CLI.nameAccount(account.account, name: $0) }
@@ -122,8 +131,6 @@ final class AccountsModel {
 
 struct AccountsView: View {
     @Bindable var model: AccountsModel
-    @State private var renaming: Account?
-    @State private var newName = ""
     @Environment(AppModel.self) private var app
 
     var body: some View {
@@ -154,10 +161,10 @@ struct AccountsView: View {
             }
         }
         .toolbar { toolbar }
-        .alert("Name This Account", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
-            TextField("Name", text: $newName)
+        .alert("Name This Account", isPresented: Binding(get: { model.renaming != nil }, set: { if !$0 { model.renaming = nil } })) {
+            TextField("Name", text: $model.newName)
             Button("Save") {
-                if let renaming { model.rename(renaming, to: newName) }
+                if let account = model.renaming { model.rename(account, to: model.newName) }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -225,8 +232,7 @@ struct AccountsView: View {
     }
 
     private func startRenaming(_ account: Account) {
-        newName = account.name ?? ""
-        renaming = account
+        model.startRenaming(account)
     }
 
     // MARK: - Sync profiles

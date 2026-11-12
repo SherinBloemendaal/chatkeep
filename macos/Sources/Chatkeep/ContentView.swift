@@ -59,6 +59,8 @@ struct ContentView: View {
         .task {
             app.queue.load()
             app.accounts.loadPending()
+            // The Accounts menu shows whether the background sync is on.
+            app.accounts.loadAuto()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             // The queue changes from the terminal too, and chats are deleted in the Claude app;

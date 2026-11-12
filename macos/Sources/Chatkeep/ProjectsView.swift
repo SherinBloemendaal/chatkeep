@@ -10,6 +10,7 @@ import SwiftUI
 struct ProjectsView: View {
     @Bindable var model: ProjectsModel
     @Environment(AppModel.self) private var app
+    @FocusState private var searchFocused: Bool
 
     var body: some View {
         HStack(spacing: 0) {
@@ -20,6 +21,8 @@ struct ProjectsView: View {
                 .frame(minWidth: 240, maxWidth: .infinity, maxHeight: .infinity)
         }
         .searchable(text: $model.search, placement: .toolbar, prompt: "Name or path")
+        .searchFocused($searchFocused)
+        .onChange(of: app.searchRequests) { searchFocused = true }
         .toolbar { toolbar }
         .navigationSubtitle(subtitle)
         .task {
